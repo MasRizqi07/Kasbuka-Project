@@ -1,0 +1,82 @@
+/* ==========================================================================
+   CSS DESIGN TOKENS — KASBUKA (Design.md Bagian 4 & 13)
+   Nama token persis sesuai spesifikasi tanpa perubahan
+   ========================================================================== */
+
+:root {
+  /* 4.1 Warna */
+  --kertas: #F4F6F3;
+  --putih: #FFFFFF;
+  --tinta: #1E2A78;
+  --tinta-redup: #5A6360;
+  --masuk: #17694A;
+  --keluar: #A83A1B;
+  --garis: #BFD3C8;
+  --garis-tegas: #8FAE9F;
+  --blok: #E6EEE8;
+  --peringatan-latar: #FBEFD5;
+
+  /* 4.2 Tipografi */
+  --font-utama: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
+  --font-tangan: 'Kalam', 'Segoe Print', cursive;
+
+  /* Ukuran font & berat (Skala Mobile / Desktop) */
+  --judul-1-size: 30px;
+  --judul-1-size-desktop: 44px;
+  --judul-1-weight: 800;
+  --judul-1-line-height: 1.1;
+
+  --judul-2-size: 22px;
+  --judul-2-size-desktop: 28px;
+  --judul-2-weight: 700;
+  --judul-2-line-height: 1.2;
+
+  --judul-3-size: 17px;
+  --judul-3-size-desktop: 18px;
+  --judul-3-weight: 700;
+  --judul-3-line-height: 1.3;
+
+  --angka-besar-size: 34px;
+  --angka-besar-size-desktop: 52px;
+  --angka-besar-weight: 800;
+  --angka-besar-line-height: 1.05;
+
+  --badan-size: 16px;
+  --badan-size-desktop: 17px;
+  --badan-weight: 400;
+  --badan-line-height: 1.55;
+
+  --kecil-size: 14px;
+  --kecil-weight: 500;
+  --kecil-line-height: 1.4;
+
+  --mikro-size: 12.5px;
+  --mikro-weight: 500;
+  --mikro-line-height: 1.35;
+
+  --tangan-size: 18px;
+  --tangan-weight: 400;
+  --tangan-line-height: 1.45;
+
+  /* 4.3 Spasi Basis 4 px */
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-48: 48px;
+  --sp-72: 72px;
+
+  /* 4.3 Radius */
+  --radius-input: 6px;
+  --radius-btn: 6px;
+  --radius-sheet: 14px;
+  --radius-pill: 9999px;
+  --radius-tabel: 0px;
+
+  /* Garis border & fokus */
+  --border-input: 1.5px solid var(--garis-tegas);
+  --focus-ring: 2px solid var(--tinta);
+  --focus-offset: 2px;
+}

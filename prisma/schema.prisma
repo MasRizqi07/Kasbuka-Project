@@ -1,0 +1,136 @@
+// Prisma Schema untuk Kasbuka (PRD Bagian 9)
+// Buku kas penggalangan dana yang boleh dibuka siapa saja
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ORG_ADMIN
+}
+
+enum CampaignBasis {
+  BERIZIN
+  TERBATAS
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum DonationStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum EntryType {
+  IN
+  OUT
+  REVERSAL
+}
+
+enum EntrySource {
+  MIDTRANS
+  MANUAL
+}
+
+model Organization {
+  id        String     @id @default(cuid())
+  name      String
+  createdAt DateTime   @default(now())
+  users     User[]
+  campaigns Campaign[]
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String?
+  passwordHash   String
+  role           Role          @default(ORG_ADMIN)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  sessions       Session[]
+  createdEntries LedgerEntry[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  slug           String         @unique
+  title          String
+  story          String
+  targetAmount   BigInt?
+  basis          CampaignBasis
+  permitNumber   String?
+  permitDate     DateTime?
+  status         CampaignStatus @default(DRAFT)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  donations      Donation[]
+  ledgerEntries  LedgerEntry[]
+}
+
+model Donation {
+  id            String         @id @default(cuid())
+  campaignId    String
+  campaign      Campaign       @relation(fields: [campaignId], references: [id])
+  orderId       String         @unique
+  amount        BigInt
+  status        DonationStatus @default(PENDING)
+  snapToken     String?
+  donorName     String?
+  isAnonymous   Boolean        @default(false)
+  message       String?
+  ledgerEntryId String?
+  createdAt     DateTime       @default(now())
+}
+
+model LedgerEntry {
+  id              String        @id @default(cuid())
+  campaignId      String
+  campaign        Campaign      @relation(fields: [campaignId], references: [id])
+  seq             Int
+  type            EntryType
+  source          EntrySource
+  amount          BigInt
+  fee             BigInt        @default(0)
+  occurredAt      DateTime      @default(now())
+  donorName       String?
+  isAnonymous     Boolean       @default(false)
+  message         String?
+  description     String?
+  proofUrl        String?
+  proofSha256     String?
+  reversesEntryId String?
+  reversesEntry   LedgerEntry?  @relation("EntryReversal", fields: [reversesEntryId], references: [id])
+  reversedBy      LedgerEntry[] @relation("EntryReversal")
+  createdById     String?
+  createdBy       User?         @relation(fields: [createdById], references: [id])
+  prevHash        String
+  hash            String
+  createdAt       DateTime      @default(now())
+
+  @@unique([campaignId, seq])
+  @@unique([campaignId, reversesEntryId])
+}

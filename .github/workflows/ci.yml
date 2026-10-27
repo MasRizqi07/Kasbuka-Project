@@ -1,0 +1,49 @@
+name: CI - Kasbuka
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: '02-in-progress/Kasbuka-Project/package.json'
+
+      - name: Install Dependencies
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npx prisma generate
+
+      - name: Run ESLint
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npm run lint
+
+      - name: Run Typecheck
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npm run typecheck
+
+      - name: Run Unit Tests (Vitest)
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npm run test
+
+      - name: Build Next.js
+        working-directory: 02-in-progress/Kasbuka-Project
+        run: npm run build
+        env:
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/kasbuka'
+          AUTH_SECRET: 'test_secret_for_ci_pipeline_only_minimum_32_characters'

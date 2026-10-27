@@ -1,0 +1,2880 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kasbuka — Buku kas penggalangan dana komunitas</title>
+  <meta name="description" content="Buku kas terbuka untuk penggalangan dana komunitas kecil di Indonesia. Transparansi rupiah masuk dan keluar dengan bukti nota nyata.">
+  
+  <!-- Google Fonts: Schibsted Grotesk & Kalam -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       DESIGN TOKENS (Design.md Bagian 4)
+       ========================================================================== */
+    :root {
+      --kertas: #F4F6F3;
+      --putih: #FFFFFF;
+      --tinta: #1E2A78;
+      --tinta-redup: #5A6360;
+      --masuk: #17694A;
+      --keluar: #A83A1B;
+      --garis: #BFD3C8;
+      --garis-tegas: #8FAE9F;
+      --blok: #E6EEE8;
+      --peringatan-latar: #FBEFD5;
+
+      /* Tipografi */
+      --font-utama: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
+      --font-tangan: 'Kalam', 'Segoe Print', cursive;
+
+      /* Spasi kelipatan 4px */
+      --sp-4: 4px;
+      --sp-8: 8px;
+      --sp-12: 12px;
+      --sp-16: 16px;
+      --sp-24: 24px;
+      --sp-32: 32px;
+      --sp-48: 48px;
+      --sp-72: 72px;
+
+      /* Radius */
+      --radius-input: 6px;
+      --radius-btn: 6px;
+      --radius-sheet: 14px;
+      --radius-pill: 9999px;
+      --radius-tabel: 0px;
+    }
+
+    /* Reset dasar & Aksesibilitas */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--kertas);
+      color: var(--tinta);
+      font-family: var(--font-utama);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Aturan tabular numbers untuk angka Rupiah */
+    .tabular-angka, .rupiah, [data-currency] {
+      font-variant-numeric: tabular-nums lining-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+    }
+
+    a {
+      color: var(--tinta);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1.5px;
+      transition: opacity 0.15s ease;
+    }
+    a:hover {
+      opacity: 0.85;
+    }
+
+    button, input, textarea, select {
+      font-family: inherit;
+      color: inherit;
+      font-size: 16px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    /* Fokus Keyboard Terlihat (Design.md 6.5) */
+    :focus-visible {
+      outline: 2px solid var(--tinta);
+      outline-offset: 2px;
+    }
+
+    /* ==========================================================================
+       BAR ATAS PROTOTIPE (Bukan bagian dari produk, hanya demonstrasi)
+       ========================================================================== */
+    .prototype-bar {
+      background-color: #E2E8E4;
+      border-bottom: 1px solid var(--garis-tegas);
+      padding: 8px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      color: var(--tinta);
+    }
+    .prototype-bar-title {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .prototype-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .prototype-btn {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12.5px;
+      font-weight: 500;
+      text-decoration: none;
+      background: var(--putih);
+      color: var(--tinta);
+      border: 1px solid var(--garis);
+    }
+    .prototype-btn.active {
+      background: var(--tinta);
+      color: var(--putih);
+      border-color: var(--tinta);
+    }
+    .state-toggle-select {
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--garis-tegas);
+      background: var(--putih);
+      font-size: 12.5px;
+      color: var(--tinta);
+    }
+
+    /* ==========================================================================
+       HEADER UTAMA & WORDMARK (Design.md 6.1)
+       ========================================================================== */
+    .site-header {
+      background: var(--kertas);
+      border-bottom: 1px solid var(--garis);
+      position: sticky;
+      top: 41px; /* Di bawah prototype bar */
+      z-index: 500;
+      padding: 16px 24px;
+    }
+    .header-inner {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--tinta);
+      letter-spacing: -0.02em;
+    }
+    /* Logo buku terbuka (persegi 22px dengan garis vertikal margin terputus) */
+    .brand-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ==========================================================================
+       TOMBOL STANDAR (Design.md 6.5)
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      height: 48px;
+      border-radius: var(--radius-btn);
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      transition: background-color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      min-width: 44px;
+      min-height: 44px;
+    }
+    .btn-primary {
+      background-color: var(--tinta);
+      color: var(--putih);
+      border: 1.5px solid var(--tinta);
+    }
+    .btn-primary:hover {
+      background-color: #151F5B;
+      color: var(--putih);
+    }
+    .btn-secondary {
+      background-color: var(--putih);
+      color: var(--tinta);
+      border: 1.5px solid var(--tinta);
+    }
+    .btn-secondary:hover {
+      background-color: var(--blok);
+    }
+    .btn-outline-garis {
+      background-color: var(--putih);
+      color: var(--tinta);
+      border: 1.5px solid var(--garis-tegas);
+    }
+    .btn-outline-garis:hover {
+      background-color: var(--blok);
+    }
+    .btn-text {
+      color: var(--tinta);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      padding: 0 8px;
+      height: auto;
+      font-weight: 500;
+    }
+    .btn-sm {
+      height: 36px;
+      padding: 0 12px;
+      font-size: 13.5px;
+    }
+
+    /* ==========================================================================
+       PILL STATUS (Design.md 6.4)
+       ========================================================================== */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 10px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .pill-midtrans {
+      background-color: var(--blok);
+      color: var(--tinta);
+    }
+    .pill-pengurus {
+      background-color: var(--putih);
+      color: var(--tinta);
+      border: 1px solid var(--garis-tegas);
+    }
+    .pill-reversal {
+      background-color: var(--putih);
+      color: var(--keluar);
+      border: 1px solid var(--keluar);
+    }
+    .pill-berizin {
+      background-color: var(--blok);
+      color: var(--masuk);
+      font-weight: 700;
+    }
+    .pill-terbatas {
+      background-color: var(--blok);
+      color: var(--tinta);
+    }
+
+    /* ==========================================================================
+       CONTAINER UTAMA & LAYOUT KONTEN (Design.md Bagian 5)
+       ========================================================================== */
+    .main-wrapper {
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px 80px 24px;
+      flex: 1;
+    }
+    .screen-view {
+      display: none;
+    }
+    .screen-view.active-screen {
+      display: block;
+    }
+
+    /* ==========================================================================
+       PERSAMAAN SALDO (Design.md 6.2)
+       ========================================================================== */
+    .saldo-equation-box {
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      padding: 24px 28px;
+      margin: 20px 0;
+    }
+    .equation-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 440px;
+    }
+    .eq-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 17px;
+      font-weight: 500;
+    }
+    .eq-label {
+      color: var(--tinta-redup);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .eq-operator {
+      font-weight: 700;
+      width: 16px;
+      display: inline-block;
+    }
+    .eq-val-masuk {
+      color: var(--masuk);
+      font-weight: 700;
+      text-align: right;
+    }
+    .eq-val-keluar {
+      color: var(--keluar);
+      font-weight: 700;
+      text-align: right;
+    }
+    .eq-divider-double {
+      border: none;
+      border-top: 3px double var(--garis-tegas);
+      margin: 6px 0 10px 0;
+    }
+    .eq-row-saldo {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .eq-saldo-label {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--tinta);
+    }
+    .eq-saldo-val {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--tinta);
+      letter-spacing: -0.02em;
+      text-align: right;
+    }
+    .eq-keterangan {
+      font-size: 13.5px;
+      color: var(--tinta-redup);
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--garis);
+    }
+
+    /* Target Bar Tipis */
+    .target-bar-wrap {
+      margin-top: 16px;
+    }
+    .target-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: var(--tinta-redup);
+      margin-bottom: 6px;
+    }
+    .target-progress-track {
+      height: 6px;
+      background-color: var(--blok);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .target-progress-fill {
+      height: 100%;
+      background-color: var(--tinta);
+      width: 22.4%;
+    }
+
+    /* ==========================================================================
+       BUKU KAS / LEDGER TABLE (Design.md 6.3)
+       Metafora buku kas bergaris hijau pucat & tulisan tangan Kalam
+       ========================================================================== */
+    .ledger-container {
+      margin: 32px 0;
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      border-radius: var(--radius-tabel);
+    }
+    .ledger-header-panel {
+      padding: 16px 20px;
+      background: var(--blok);
+      border-bottom: 1.5px solid var(--garis-tegas);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .ledger-header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--tinta);
+    }
+
+    /* Desktop Table */
+    .ledger-table-wrap {
+      overflow-x: auto;
+      width: 100%;
+    }
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14.5px;
+      text-align: left;
+    }
+    .ledger-table th {
+      background-color: var(--kertas);
+      color: var(--tinta-redup);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: none;
+      padding: 12px 16px;
+      border-bottom: 1.5px solid var(--garis-tegas);
+      white-space: nowrap;
+    }
+    .ledger-table th.col-no {
+      width: 60px;
+      border-right: 2px solid var(--garis-tegas);
+    }
+    .ledger-table th.col-tgl {
+      width: 105px;
+    }
+    .ledger-table th.col-kanan {
+      text-align: right;
+      width: 130px;
+    }
+    .ledger-table th.col-saldo {
+      text-align: right;
+      width: 140px;
+    }
+
+    .ledger-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--garis);
+      vertical-align: top;
+      color: var(--tinta);
+    }
+    .ledger-table tr:hover {
+      background-color: #F8FAF7;
+    }
+    .ledger-table td.col-no {
+      font-weight: 700;
+      color: var(--tinta-redup);
+      border-right: 2px solid var(--garis-tegas);
+      font-size: 13.5px;
+      white-space: nowrap;
+    }
+    .ledger-table td.col-tgl {
+      color: var(--tinta-redup);
+      font-size: 13.5px;
+      white-space: nowrap;
+    }
+    .ledger-table td.col-kanan {
+      text-align: right;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    /* Gerak 2: Animasi baris baru donasi masuk */
+    @keyframes highlightRowFade {
+      0% {
+        background-color: #CBE2D4;
+      }
+      100% {
+        background-color: transparent;
+      }
+    }
+    .row-baru-animasi {
+      animation: highlightRowFade 1.6s ease-out forwards;
+    }
+
+    /* Scan sweep check (Gerak 3) */
+    .row-sweep-valid {
+      background-color: #D2EBD9 !important;
+      transition: background-color 0.15s ease;
+    }
+
+    /* Styling Teks & Keterangan Ledger */
+    .desc-title {
+      font-weight: 500;
+      color: var(--tinta);
+      margin-bottom: 4px;
+    }
+    .desc-sub {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .doa-teks {
+      font-family: var(--font-tangan);
+      font-size: 18px;
+      color: var(--tinta);
+      margin-top: 6px;
+      padding-left: 16px;
+      border-left: 2px solid var(--garis-tegas);
+      line-height: 1.45;
+    }
+    .reversal-strikethrough {
+      text-decoration: line-through;
+      color: var(--tinta-redup) !important;
+    }
+
+    .btn-hash-copy {
+      font-size: 12px;
+      color: var(--tinta-redup);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: var(--kertas);
+      border: 1px solid var(--garis);
+      border-radius: 4px;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+    .btn-hash-copy:hover {
+      background: var(--blok);
+      color: var(--tinta);
+    }
+
+    .btn-lihat-bukti {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--tinta);
+      text-decoration: underline;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    /* Tampilan Mobile Buku Kas (Design.md 5 & 6.3) */
+    .ledger-mobile-list {
+      display: none;
+      list-style: none;
+    }
+    .mobile-ledger-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--garis);
+      cursor: pointer;
+    }
+    .mobile-ledger-item:hover {
+      background: #F9FAF8;
+    }
+    .mobile-tier-1 {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .mobile-seq-desc {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--tinta);
+      line-height: 1.35;
+    }
+    .mobile-seq-tag {
+      font-weight: 700;
+      color: var(--tinta-redup);
+      margin-right: 6px;
+    }
+    .mobile-amount {
+      text-align: right;
+      font-weight: 700;
+      font-size: 15.5px;
+      white-space: nowrap;
+    }
+    .mobile-tier-2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--tinta-redup);
+    }
+    .mobile-running-balance {
+      display: none;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--kertas);
+      font-size: 13px;
+      border-left: 3px solid var(--garis-tegas);
+    }
+    .mobile-ledger-item.expanded .mobile-running-balance {
+      display: block;
+    }
+
+    /* ==========================================================================
+       PANEL KEUTUHAN BUKU (Design.md 6.8)
+       ========================================================================== */
+    .integrity-panel {
+      display: none;
+      margin: 16px 0;
+      padding: 16px 20px;
+      border-radius: var(--radius-input);
+      font-size: 14.5px;
+      line-height: 1.5;
+    }
+    .integrity-panel.valid {
+      display: block;
+      background-color: var(--blok);
+      border: 1.5px solid var(--garis-tegas);
+      color: var(--tinta);
+    }
+    .integrity-panel.corrupt {
+      display: block;
+      background-color: #FDEDED;
+      border: 1.5px solid var(--keluar);
+      color: var(--keluar);
+    }
+    .integrity-header {
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .integrity-honest-note {
+      font-size: 13px;
+      color: var(--tinta-redup);
+      margin-top: 6px;
+    }
+
+    /* Kotak Dasar Penggalangan (Design.md 6.9) */
+    .dasar-penggalangan-box {
+      background-color: var(--peringatan-latar);
+      border-left: 4px solid var(--tinta);
+      padding: 14px 18px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      margin: 20px 0;
+      color: var(--tinta);
+    }
+    .dasar-penggalangan-box strong {
+      font-weight: 700;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* ==========================================================================
+       SECTIONS & KARTU INFORMASI LAINNYA
+       ========================================================================== */
+    .campaign-title {
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--tinta);
+      margin-bottom: 12px;
+    }
+    .campaign-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .story-section {
+      margin: 32px 0;
+      max-width: 680px;
+    }
+    .story-section h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .story-section p {
+      font-size: 16.5px;
+      margin-bottom: 16px;
+      color: #242B59;
+    }
+
+    /* ==========================================================================
+       S1: HERO LANDING & CARA KERJA (Design.md Bagian 7)
+       ========================================================================== */
+    .hero-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 40px;
+      align-items: center;
+      margin-top: 24px;
+      margin-bottom: 64px;
+    }
+    .hero-heading {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--tinta);
+      margin-bottom: 20px;
+    }
+    .hero-subtext {
+      font-size: 18px;
+      color: var(--tinta);
+      line-height: 1.55;
+      max-width: 500px;
+      margin-bottom: 28px;
+    }
+    .hero-ctas {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Hero Typewriter Ledger Card (Gerak 1) */
+    .hero-ledger-card {
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      box-shadow: 0 4px 12px rgba(30, 42, 120, 0.04);
+      padding: 0;
+    }
+    .hero-card-head {
+      background: var(--blok);
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border-bottom: 1.5px solid var(--garis-tegas);
+      display: flex;
+      justify-content: space-between;
+    }
+    .hero-card-body {
+      padding: 16px;
+    }
+    .hero-entry-line {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--garis);
+      display: flex;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .hero-entry-date {
+      width: 48px;
+      color: var(--tinta-redup);
+      font-size: 13px;
+      border-right: 2px solid var(--garis-tegas);
+      padding-right: 6px;
+      flex-shrink: 0;
+    }
+    .hero-entry-content {
+      flex: 1;
+    }
+
+    /* Sequential Steps */
+    .steps-section {
+      margin: 64px 0;
+      border-top: 1px solid var(--garis);
+      padding-top: 48px;
+    }
+    .section-title {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 28px;
+      color: var(--tinta);
+    }
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 760px;
+    }
+    .step-item {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .step-number {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--tinta);
+      width: 32px;
+      flex-shrink: 0;
+    }
+    .step-body h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .step-body p {
+      font-size: 15.5px;
+      color: var(--tinta-redup);
+      line-height: 1.5;
+    }
+
+    /* What Kasbuka DOES NOT do */
+    .not-doing-box {
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      border-left: 4px solid var(--tinta);
+      padding: 24px;
+      margin: 48px 0;
+      max-width: 760px;
+    }
+    .not-doing-box h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--tinta);
+    }
+    .not-doing-list {
+      list-style-type: square;
+      padding-left: 20px;
+      font-size: 15px;
+      color: var(--tinta);
+      line-height: 1.6;
+    }
+
+    /* ==========================================================================
+       S4: DASBOR PENGURUS (Design.md 7 & PRD US-3, US-4, US-5)
+       ========================================================================== */
+    .dashboard-tabs {
+      display: flex;
+      gap: 24px;
+      border-bottom: 1px solid var(--garis-tegas);
+      margin: 24px 0;
+    }
+    .tab-btn {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--tinta-redup);
+      padding: 10px 0;
+      position: relative;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    .tab-btn.active {
+      color: var(--tinta);
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background-color: var(--tinta);
+    }
+    .form-box {
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      padding: 24px;
+      max-width: 540px;
+      margin-bottom: 36px;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--tinta);
+      margin-bottom: 6px;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      height: 48px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--garis-tegas);
+      border-radius: var(--radius-input);
+      background: var(--putih);
+      color: var(--tinta);
+      font-size: 15px;
+    }
+    .form-textarea {
+      height: 80px;
+      resize: vertical;
+    }
+    .form-input:focus, .form-textarea:focus {
+      border-color: var(--tinta);
+      outline: 2px solid var(--tinta);
+      outline-offset: 2px;
+    }
+    .form-error {
+      color: var(--keluar);
+      font-size: 13.5px;
+      margin-top: 6px;
+      display: none;
+    }
+    .form-note {
+      font-size: 13px;
+      color: var(--tinta-redup);
+      margin-top: 8px;
+    }
+    .photo-preview-box {
+      margin-top: 10px;
+      display: none;
+      padding: 8px;
+      background: var(--kertas);
+      border: 1px dashed var(--garis-tegas);
+      text-align: center;
+    }
+    .photo-preview-box img {
+      max-height: 140px;
+      max-width: 100%;
+      object-fit: contain;
+    }
+
+    /* ==========================================================================
+       MODAL & BOTTOM SHEET (Design.md 6.7)
+       Sheet donasi (mobile: bottom-sheet, desktop: 440px modal)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(30, 42, 120, 0.4);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-sheet {
+      background: var(--putih);
+      border-radius: var(--radius-sheet);
+      max-width: 480px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--garis-tegas);
+      box-shadow: 0 -8px 0 0 rgba(30, 42, 120, 0.06);
+      position: relative;
+    }
+    .modal-sheet-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--garis);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: var(--putih);
+      z-index: 10;
+    }
+    .modal-sheet-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--tinta);
+    }
+    .modal-close-btn {
+      font-size: 20px;
+      color: var(--tinta-redup);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .modal-sheet-body {
+      padding: 24px;
+    }
+
+    /* Nominal Pilihan Cepat (Design.md 6.6) */
+    .nominal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .nominal-btn {
+      height: 48px;
+      border: 1.5px solid var(--garis-tegas);
+      border-radius: var(--radius-btn);
+      background: var(--putih);
+      font-weight: 700;
+      color: var(--tinta);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .nominal-btn.selected {
+      background: var(--tinta);
+      color: var(--putih);
+      border-color: var(--tinta);
+    }
+    .nominal-btn.selected::after {
+      content: '✓';
+      font-size: 14px;
+    }
+
+    /* Midtrans Snap Simulation Modal */
+    .snap-modal-card {
+      background: #FFFFFF;
+      border: 2px solid var(--tinta);
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .snap-badge {
+      display: inline-block;
+      background: #002554;
+      color: #FFF;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .payment-method-item {
+      padding: 10px 12px;
+      border: 1px solid var(--garis);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .payment-method-item:hover, .payment-method-item.active {
+      border-color: var(--tinta);
+      background: var(--blok);
+    }
+
+    /* Toast Notifikasi */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 3000;
+      pointer-events: none;
+    }
+    .toast-msg {
+      background: var(--tinta);
+      color: var(--putih);
+      padding: 14px 20px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 14.5px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      margin-top: 8px;
+      animation: fadeInToast 0.25s ease-out;
+    }
+    @keyframes fadeInToast {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Bar Bawah Tetap Mobile (Design.md 5 & 10) */
+    .mobile-sticky-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: var(--putih);
+      border-top: 1.5px solid var(--garis-tegas);
+      padding: 8px 16px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      z-index: 800;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .mobile-bar-saldo {
+      display: flex;
+      flex-direction: column;
+    }
+    .mobile-bar-label {
+      font-size: 12px;
+      color: var(--tinta-redup);
+    }
+    .mobile-bar-val {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--tinta);
+    }
+
+    /* Keadaan Kosong & Error (Design.md 6.10) */
+    .state-message-box {
+      padding: 40px 24px;
+      text-align: left;
+      background: var(--putih);
+      border: 1px solid var(--garis);
+      margin: 24px 0;
+    }
+    .state-message-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--garis);
+      padding: 32px 24px;
+      background: var(--kertas);
+      font-size: 14px;
+      color: var(--tinta-redup);
+      margin-top: auto;
+    }
+    .footer-inner {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* ==========================================================================
+       RESPONSIVE BREAKPOINTS (Mobile-first 390px, 768px, 1120px)
+       ========================================================================== */
+    @media (max-width: 768px) {
+      .hero-layout {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        margin-bottom: 40px;
+      }
+      .hero-heading {
+        font-size: 32px;
+      }
+      .campaign-title {
+        font-size: 26px;
+      }
+      .eq-saldo-val {
+        font-size: 28px;
+      }
+      .ledger-table-wrap {
+        display: none; /* Sembunyikan tabel desktop di mobile */
+      }
+      .ledger-mobile-list {
+        display: block; /* Tampilkan baris bergaris 2 tingkat di mobile */
+      }
+      .mobile-sticky-bar {
+        display: flex;
+      }
+      .main-wrapper {
+        padding-bottom: 100px; /* Space for mobile sticky bar */
+      }
+      .modal-sheet {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-width: 100%;
+        border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+        max-height: 92vh;
+      }
+    }
+
+    /* Respek prefers-reduced-motion (Design.md 4.4 & 10) */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       BAR PROTOTIPE KONTROL ATAS
+       ======================================================================== -->
+  <header class="prototype-bar" aria-label="Navigasi Prototipe">
+    <div class="prototype-bar-title">
+      <span>Prototipe</span>
+      <span style="color: var(--tinta-redup)">|</span>
+      <label for="stateSelector" style="font-weight: 500;">Status:</label>
+      <select id="stateSelector" class="state-toggle-select" onchange="gantiStatusTampilan(this.value)">
+        <option value="normal" selected>Normal</option>
+        <option value="empty">Buku Kosong (6.10)</option>
+        <option value="network-error">Jaringan Gagal (6.10)</option>
+      </select>
+    </div>
+
+    <nav class="prototype-links" aria-label="Layar Cepat">
+      <a href="#/" class="prototype-btn" id="btnNavS1" onclick="navigasiLayar('/')">S1 Landing (#/)</a>
+      <a href="#/c/atap-musala-al-ikhlas" class="prototype-btn" id="btnNavS2" onclick="navigasiLayar('/c/atap-musala-al-ikhlas')">S2 Campaign (#/c/atap-musala-al-ikhlas)</a>
+      <a href="javascript:void(0)" class="prototype-btn" id="btnNavS3" onclick="bukaSheetDonasi()">S3 Sheet donasi</a>
+      <a href="#/dashboard" class="prototype-btn" id="btnNavS4" onclick="navigasiLayar('/dashboard')">S4 Dasbor (#/dashboard)</a>
+    </nav>
+  </header>
+
+  <!-- ========================================================================
+       HEADER SITUS & WORDMARK (Design.md 6.1)
+       ======================================================================== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#/" class="brand-link" onclick="navigasiLayar('/')" aria-label="Halaman Beranda Kasbuka">
+        <!-- SVG Tanda Buku Terbuka 22x22px dengan garis vertikal margin terputus -->
+        <svg class="brand-icon" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="1" y="1" width="20" height="20" rx="3" stroke="#1E2A78" stroke-width="2"/>
+          <line x1="1" y1="8" x2="21" y2="8" stroke="#1E2A78" stroke-width="1.5"/>
+          <line x1="1" y1="15" x2="21" y2="15" stroke="#1E2A78" stroke-width="1.5"/>
+          <!-- Garis vertikal terputus di tengah -->
+          <line x1="7" y1="1" x2="7" y2="7" stroke="#1E2A78" stroke-width="2"/>
+          <line x1="7" y1="16" x2="7" y2="21" stroke="#1E2A78" stroke-width="2"/>
+        </svg>
+        <span>Kasbuka</span>
+      </a>
+
+      <div class="header-actions">
+        <a href="#/dashboard" class="btn btn-sm btn-text" onclick="navigasiLayar('/dashboard')">Masuk</a>
+        <a href="#/dashboard" class="btn btn-sm btn-primary" onclick="navigasiLayar('/dashboard')">Mulai buku kas</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       KONTEN UTAMA DENGAN 4 LAYAR (S1, S2, S4, Sheet S3)
+       ======================================================================== -->
+  <main class="main-wrapper" id="mainContent">
+
+    <!-- ======================================================================
+         LAYAR S1: LANDING UNTUK PENGURUS (#/)
+         ====================================================================== -->
+    <section id="screenS1" class="screen-view">
+      <div class="hero-layout">
+        <div class="hero-copy">
+          <h1 class="hero-heading">Semua rupiah yang masuk dan keluar, ditulis di depan umum.</h1>
+          <p class="hero-subtext">Kasbuka membantu pengurus musala, pesantren, dan komunitas menunjukkan catatan dana lengkap dengan foto nota.</p>
+          <div class="hero-ctas">
+            <a href="#/dashboard" class="btn btn-primary" onclick="navigasiLayar('/dashboard')">Mulai buku kas</a>
+            <a href="#/c/atap-musala-al-ikhlas" class="btn btn-text" onclick="navigasiLayar('/c/atap-musala-al-ikhlas')">Lihat contoh buku kas</a>
+          </div>
+        </div>
+
+        <!-- Hero Card Gerak 1: Typewriter Ledger -->
+        <div class="hero-ledger-card" aria-label="Simulasi entri buku kas terbaru">
+          <div class="hero-card-head">
+            <span>Buku kas: Musala Al-Ikhlas</span>
+            <span class="tabular-angka" id="heroHeaderSaldo">Saldo Rp 7.955.050</span>
+          </div>
+          <div class="hero-card-body">
+            <!-- Baris #12 Animasi Ketik (Gerak 1) -->
+            <div class="hero-entry-line" id="heroTypewriterLine" style="background-color: var(--blok);">
+              <div class="hero-entry-date">
+                <div style="font-weight:700; color:var(--tinta);">#12</div>
+                <div>27 Okt</div>
+              </div>
+              <div class="hero-entry-content">
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <strong style="color:var(--tinta);">Dina K.</strong>
+                  <span class="tabular-angka" style="color:var(--masuk); font-weight:700;">+ Rp 100.000</span>
+                </div>
+                <div class="doa-teks" id="typewriterText" style="margin-top:4px; font-size:16px;"></div>
+                <div style="margin-top:6px;">
+                  <span class="status-pill pill-midtrans" style="font-size:11.5px; height:20px;">Dibayar lewat Midtrans</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Baris #11 Standar -->
+            <div class="hero-entry-line">
+              <div class="hero-entry-date">
+                <div style="font-weight:700;">#11</div>
+                <div>27 Okt</div>
+              </div>
+              <div class="hero-entry-content">
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <span>Upah tukang 5 orang x 3 hari</span>
+                  <span class="tabular-angka" style="color:var(--keluar); font-weight:700;">− Rp 4.800.000</span>
+                </div>
+                <div style="margin-top:6px;">
+                  <span class="status-pill pill-pengurus" style="font-size:11.5px; height:20px;">Dicatat pengurus</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urutan Langkah Cara Kerja -->
+      <section class="steps-section" aria-labelledby="stepsHeading">
+        <h2 id="stepsHeading" class="section-title">Cara kerja untuk pengurus</h2>
+        <div class="steps-list">
+          <div class="step-item">
+            <div class="step-number">1.</div>
+            <div class="step-body">
+              <h3>Buat campaign</h3>
+              <p>Tulis tujuan penggalangan dana, kebutuhan anggaran, dan cantumkan dasar izin atau keterangan komunitas terbatas.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-number">2.</div>
+            <div class="step-body">
+              <h3>Catat setiap uang masuk dan keluar</h3>
+              <p>Donasi lewat QRIS atau transfer otomatis masuk ke buku kas. Setiap pengeluaran wajib dilampiri foto nota toko atau kuitansi tukang.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-number">3.</div>
+            <div class="step-body">
+              <h3>Bagikan link ke grup</h3>
+              <p>Kirim tautan buku kas ke grup WhatsApp keluarga atau warga. Siapa pun dapat melihat saldo terkini dan membuktikan keutuhan catatan.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Blok Lugas: Yang Kasbuka Tidak Lakukan -->
+      <section class="not-doing-box" aria-labelledby="notDoingHeading">
+        <h3 id="notDoingHeading">Yang Kasbuka tidak lakukan</h3>
+        <ul class="not-doing-list">
+          <li><strong>Tidak memegang atau menampung dana.</strong> Donasi disalurkan langsung via payment gateway ke rekening organisasi; Kasbuka murni alat pencatatan transparansi.</li>
+          <li><strong>Tidak memeriksa keabsahan izin dinas.</strong> Status izin dicantumkan apa adanya sesuai pengakuan pengurus untuk dinilai sendiri oleh publik.</li>
+          <li><strong>Tidak menjamin pengurus jujur.</strong> Sistem hash chain memastikan catatan yang sudah ditulis tidak bisa diubah diam-diam, namun tidak menggantikan ketelitian warga.</li>
+        </ul>
+      </section>
+    </section>
+
+
+    <!-- ======================================================================
+         LAYAR S2: HALAMAN PUBLIK CAMPAIGN (#/c/atap-musala-al-ikhlas)
+         ====================================================================== -->
+    <section id="screenS2" class="screen-view">
+      <header class="campaign-header">
+        <div class="campaign-badges">
+          <span class="status-pill pill-berizin">Berizin</span>
+          <span class="status-pill pill-pengurus">Diperbarui 27 Okt</span>
+        </div>
+        <h1 class="campaign-title">Atap Musala Al-Ikhlas bocor, warga Karangpoh renovasi bersama</h1>
+        
+        <!-- Kotak Dasar Penggalangan (Design.md 6.9) -->
+        <div class="dasar-penggalangan-box" role="region" aria-label="Dasar Penggalangan">
+          <strong>Dasar penggalangan</strong>
+          Penggalangan berizin. Izin Bupati Jombang No. 188/412/415.35/2026, 12 Oktober 2026. Kasbuka mencatat, tidak memeriksa keabsahan izin.
+        </div>
+      </header>
+
+      <!-- Komponen Persamaan Saldo (Design.md 6.2) -->
+      <div class="saldo-equation-box" role="region" aria-label="Ringkasan Perhitungan Saldo">
+        <div class="equation-rows">
+          <div class="eq-row">
+            <div class="eq-label">
+              <span class="eq-operator">+</span> Masuk
+            </div>
+            <div class="eq-val-masuk tabular-angka" id="s2TotalMasuk">Rp 19.105.050</div>
+          </div>
+          <div class="eq-row">
+            <div class="eq-label">
+              <span class="eq-operator">−</span> Keluar
+            </div>
+            <div class="eq-val-keluar tabular-angka" id="s2TotalKeluar">Rp 11.150.000</div>
+          </div>
+          <hr class="eq-divider-double" aria-hidden="true">
+          <div class="eq-row-saldo">
+            <div class="eq-saldo-label">Saldo</div>
+            <div class="eq-saldo-val tabular-angka" id="s2TotalSaldo">Rp 7.955.050</div>
+          </div>
+        </div>
+
+        <div class="target-bar-wrap">
+          <div class="target-info">
+            <span>Target Rp 85.000.000</span>
+            <span id="targetPercentageText">22% terkumpul</span>
+          </div>
+          <div class="target-progress-track">
+            <div class="target-progress-fill" id="targetProgressFill" style="width: 22.4%;"></div>
+          </div>
+        </div>
+
+        <p class="eq-keterangan" id="s2EquationNote">Dihitung dari 11 entri. Masuk dihitung setelah biaya Midtrans.</p>
+      </div>
+
+      <!-- Tombol Aksi Campaign -->
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin:24px 0;">
+        <button type="button" class="btn btn-primary" onclick="bukaSheetDonasi()">Donasi sekarang</button>
+        <button type="button" class="btn btn-outline-garis" onclick="bagikanWhatsApp()">Bagikan ke WhatsApp</button>
+        <button type="button" class="btn btn-outline-garis" id="btnPeriksaKeutuhan" onclick="periksaKeutuhanBuku()">Periksa keutuhan buku</button>
+      </div>
+
+      <!-- Panel Keutuhan Hasil Verifikasi Hash Chain (Design.md 6.8 & Gerak 3) -->
+      <div id="integrityPanel" class="integrity-panel" role="status" aria-live="polite">
+        <div class="integrity-header">
+          <span id="integrityIcon" aria-hidden="true">✓</span>
+          <span id="integrityStatusText">Rantai 11 entri utuh. Hash terakhir 7be41d09…</span>
+        </div>
+        <p class="integrity-honest-note" id="integrityDetailText">
+          Ini memastikan catatan tidak diubah setelah ditulis. Ini tidak membuktikan semua uang tercatat.
+        </p>
+      </div>
+
+      <!-- Cerita Campaign (3 paragraf nada warga biasa) -->
+      <article class="story-section">
+        <h2>Cerita penggalangan</h2>
+        <p>Musala Al-Ikhlas di Dusun Karangpoh sudah berdiri sejak tahun 1982. Sejak musim hujan tahun lalu, atap bagian depan dan ruang salat utama mulai bocor di beberapa titik karena usuk kayu yang lapuk dan asbes yang retak. Warga berinisiatif mengganti rangka atap menggunakan baja ringan dan genteng metal agar lebih awet.</p>
+        <p>Setiap hari musala ini dipakai untuk salat lima waktu dan pengajian anak-anak sore hari, dengan jamaah salat Jumat mencapai sekitar 120 orang warga dusun dan sekitarnya. Sebagian dana sudah dihimpun dari kas takmir dan sumbangan swadaya warga kampung, namun masih ada kekurangan untuk menyelesaikan material dan upah tukang.</p>
+        <p>Rencana anggaran biaya keseluruhan adalah Rp 85 juta, meliputi pembongkaran atap lama, pembelian baja ringan, genteng metal pasir, plafon PVC, dan upah 5 orang tukang. Semua rincian pengeluaran pembelian bahan bangunan dan kuitansi tukang akan difoto dan dicatat langsung di buku kas ini.</p>
+        <p style="font-size:14px; color:var(--tinta-redup); border-top:1px solid var(--garis); padding-top:12px;">
+          Penerima dana: <strong>Takmir Musala Al-Ikhlas</strong>, Ketua: Pak Hasan (Dusun Karangpoh, Jombang).
+        </p>
+      </article>
+
+      <!-- TABEL BUKU KAS (Design.md 6.3) -->
+      <section class="ledger-container" aria-labelledby="ledgerHeading">
+        <div class="ledger-header-panel">
+          <h2 id="ledgerHeading" class="ledger-header-title">Buku Kas Penggalangan</h2>
+          <span style="font-size:13.5px; color:var(--tinta-redup);" id="entryCountBadge">11 entri tercatat</span>
+        </div>
+
+        <!-- Tampilan Desktop: Tabel 6 Kolom -->
+        <div class="ledger-table-wrap">
+          <table class="ledger-table" id="desktopLedgerTable">
+            <thead>
+              <tr>
+                <th class="col-no">No</th>
+                <th class="col-tgl">Tanggal</th>
+                <th>Keterangan</th>
+                <th class="col-kanan">Masuk</th>
+                <th class="col-kanan">Keluar</th>
+                <th class="col-saldo">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTableBody">
+              <!-- Render otomatis dari array JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tampilan Mobile: Baris Bergaris 2 Tingkat (Design.md 5 & 6.3) -->
+        <ol class="ledger-mobile-list" id="mobileLedgerList" aria-label="Daftar entri buku kas">
+          <!-- Render otomatis dari array JS -->
+        </ol>
+      </section>
+    </section>
+
+
+    <!-- ======================================================================
+         LAYAR S4: DASBOR PENGURUS (#/dashboard)
+         ====================================================================== -->
+    <section id="screenS4" class="screen-view">
+      <header style="margin-bottom: 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h1 style="font-size:28px; font-weight:800; color:var(--tinta);">Atap Musala Al-Ikhlas</h1>
+            <p style="font-size:14px; color:var(--tinta-redup);">Organisasi: Takmir Musala Al-Ikhlas (Role: ORG_ADMIN)</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <span class="status-pill pill-berizin">Aktif</span>
+            <button type="button" class="btn btn-sm btn-outline-garis" onclick="alert('Fitur tutup campaign: campaign diubah menjadi CLOSED.')">Tutup campaign</button>
+          </div>
+        </div>
+
+        <!-- Ringkasan Saldo Dasbor -->
+        <div class="saldo-equation-box" style="margin-top:20px;">
+          <div class="equation-rows">
+            <div class="eq-row">
+              <span class="eq-label"><span class="eq-operator">+</span> Masuk</span>
+              <span class="eq-val-masuk tabular-angka" id="dashTotalMasuk">Rp 19.105.050</span>
+            </div>
+            <div class="eq-row">
+              <span class="eq-label"><span class="eq-operator">−</span> Keluar</span>
+              <span class="eq-val-keluar tabular-angka" id="dashTotalKeluar">Rp 11.150.000</span>
+            </div>
+            <hr class="eq-divider-double" aria-hidden="true">
+            <div class="eq-row-saldo">
+              <span class="eq-saldo-label">Saldo Tersedia</span>
+              <span class="eq-saldo-val tabular-angka" id="dashTotalSaldo">Rp 7.955.050</span>
+            </div>
+          </div>
+          <p class="eq-keterangan" id="dashEquationNote">Dihitung dari 11 entri. Catatan tidak dapat diedit atau dihapus.</p>
+        </div>
+      </header>
+
+      <!-- Tab Pengeluaran vs Pemasukan (Garis bawah 3px var(--tinta)) -->
+      <div class="dashboard-tabs" role="tablist">
+        <button type="button" class="tab-btn active" id="tabPengeluaranBtn" role="tab" aria-selected="true" onclick="pilihTabDasbor('pengeluaran')">Catat pengeluaran</button>
+        <button type="button" class="tab-btn" id="tabPemasukanBtn" role="tab" aria-selected="false" onclick="pilihTabDasbor('pemasukan')">Catat pemasukan</button>
+      </div>
+
+      <!-- FORM 1: CATAT PENGELUARAN (US-3) -->
+      <div id="formPengeluaranBox" class="form-box">
+        <form id="formPengeluaran" onsubmit="submitPengeluaran(event)">
+          <div class="form-group">
+            <label class="form-label" for="outTanggal">Tanggal</label>
+            <input type="text" id="outTanggal" class="form-input" value="27 Okt 2026" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="outNominal">Nominal (Rupiah)</label>
+            <input type="text" id="outNominal" class="form-input rupiah" placeholder="Contoh: 1.500.000" inputmode="numeric" oninput="formatInputRupiah(this)" required>
+            <div class="form-error" id="outNominalError">Nominal melebihi saldo tersedia. Sesuaikan nominal pengeluaran.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="outKeterangan">Keterangan Pengeluaran</label>
+            <input type="text" id="outKeterangan" class="form-input" placeholder="Contoh: Cat tembok 5 pail dan kuas roll" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="outFotoNota">Foto Nota / Bukti (Wajib)</label>
+            <input type="file" id="outFotoNota" class="form-input" accept="image/jpeg,image/png,image/webp" onchange="pratinjauFotoNota(this)" required>
+            <div class="photo-preview-box" id="notaPreviewContainer">
+              <img id="notaPreviewImg" src="" alt="Pratinjau foto nota">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Catat pengeluaran</button>
+          <p class="form-note">Entri tidak bisa diubah. Salah catat? Batalkan lewat entri koreksi.</p>
+        </form>
+      </div>
+
+      <!-- FORM 2: CATAT PEMASUKAN MANUAL (US-4) -->
+      <div id="formPemasukanBox" class="form-box" style="display:none;">
+        <form id="formPemasukan" onsubmit="submitPemasukanManual(event)">
+          <div class="form-group">
+            <label class="form-label" for="inTanggal">Tanggal</label>
+            <input type="text" id="inTanggal" class="form-input" value="27 Okt 2026" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inNominal">Nominal (Rupiah)</label>
+            <input type="text" id="inNominal" class="form-input rupiah" placeholder="Contoh: 500.000" inputmode="numeric" oninput="formatInputRupiah(this)" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inNamaDonatur">Nama Donatur</label>
+            <input type="text" id="inNamaDonatur" class="form-input" placeholder="Nama penyumbang atau hamba Allah" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inKeterangan">Keterangan / Sumber</label>
+            <input type="text" id="inKeterangan" class="form-input" value="Kotak amal Jumat" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Catat pemasukan manual</button>
+          <p class="form-note">Dicatat sebagai sumber MANUAL ("Dicatat pengurus"), bukan Midtrans.</p>
+        </form>
+      </div>
+
+      <!-- Riwayat Entri & Aksi Pembatalan (US-5) -->
+      <section style="margin-top: 40px;">
+        <h2 style="font-size:20px; font-weight:700; margin-bottom:16px;">Kelola Riwayat Entri</h2>
+        <div class="ledger-container">
+          <div class="ledger-table-wrap">
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th class="col-no">No</th>
+                  <th class="col-tgl">Tanggal</th>
+                  <th>Keterangan</th>
+                  <th class="col-kanan">Nominal</th>
+                  <th style="width: 110px; text-align:center;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="dashboardTableBody">
+                <!-- Render riwayat dasbor dengan tombol [Batalkan] -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </section>
+
+  </main>
+
+
+  <!-- ========================================================================
+       MODAL: LIHAT BUKTI NOTA / KUITANSI BERSTEMPEL (US-1 & US-3)
+       ======================================================================== -->
+  <div id="modalBuktiNota" class="modal-backdrop" onclick="tutupModalBukti(event)">
+    <div class="modal-sheet" style="max-width: 500px;" onclick="event.stopPropagation()">
+      <div class="modal-sheet-header">
+        <h3 id="modalBuktiTitle">Bukti Nota #6</h3>
+        <button type="button" class="modal-close-btn" onclick="tutupModalBukti()" aria-label="Tutup bukti">✕</button>
+      </div>
+      <div class="modal-sheet-body" style="text-align:center;">
+        <div id="receiptGraphicContainer" style="background:var(--kertas); padding:16px; border:1px solid var(--garis); margin-bottom:12px;">
+          <!-- SVG Nota Toko Bangunan / Kuitansi Realistis -->
+          <svg id="svgReceipt" viewBox="0 0 360 260" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+            <rect width="360" height="260" fill="#FFFDF8" stroke="#BFD3C8" stroke-width="2"/>
+            <text x="180" y="30" font-family="'Schibsted Grotesk', sans-serif" font-size="16" font-weight="bold" fill="#1E2A78" text-anchor="middle">TOKO BANGUNAN MAKMUR</text>
+            <text x="180" y="46" font-family="'Schibsted Grotesk', sans-serif" font-size="11" fill="#5A6360" text-anchor="middle">Jl. Raya Karangpoh No. 14, Jombang</text>
+            <line x1="20" y1="56" x2="340" y2="56" stroke="#8FAE9F" stroke-width="1.5" stroke-dasharray="4 2"/>
+            
+            <text x="24" y="80" font-size="12" fill="#5A6360">No Nota: TB-2026-1025</text>
+            <text x="336" y="80" font-size="12" fill="#5A6360" text-anchor="end">25 Okt 2026</text>
+            
+            <text x="24" y="110" font-size="12" font-weight="bold" fill="#1E2A78">40 sak Semen Gresik @ 75.000</text>
+            <text x="336" y="110" font-size="12" fill="#1E2A78" text-anchor="end">Rp 3.000.000</text>
+
+            <text x="24" y="135" font-size="12" font-weight="bold" fill="#1E2A78">2 rit Pasir Pasang Lumajang</text>
+            <text x="336" y="135" font-size="12" fill="#1E2A78" text-anchor="end">Rp 3.350.000</text>
+
+            <line x1="20" y1="155" x2="340" y2="155" stroke="#8FAE9F" stroke-width="1"/>
+            
+            <text x="24" y="180" font-size="14" font-weight="bold" fill="#1E2A78">TOTAL DIBAYAR LUNAS</text>
+            <text x="336" y="180" font-size="16" font-weight="bold" fill="#A83A1B" text-anchor="end">Rp 6.350.000</text>
+
+            <!-- Stempel Lunas Bulat -->
+            <circle cx="270" cy="215" r="32" fill="none" stroke="#A83A1B" stroke-width="2" stroke-opacity="0.85"/>
+            <text x="270" y="212" font-family="'Schibsted Grotesk', sans-serif" font-size="10" font-weight="bold" fill="#A83A1B" text-anchor="middle" transform="rotate(-12 270 215)">LUNAS</text>
+            <text x="270" y="225" font-family="'Schibsted Grotesk', sans-serif" font-size="9" fill="#A83A1B" text-anchor="middle" transform="rotate(-12 270 215)">TB MAKMUR</text>
+          </svg>
+        </div>
+        <p id="modalBuktiDesc" style="font-size:13.5px; color:var(--tinta-redup); text-align:left;">
+          Bukti sah dari Toko Bangunan Makmur, diverifikasi SHA-256 tersimpan di ledger.
+        </p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================================
+       MODAL DIALOG REVERSAL: KOREKSI KESALAHAN (US-5)
+       ======================================================================== -->
+  <div id="modalReversal" class="modal-backdrop" onclick="tutupModalReversal(event)">
+    <div class="modal-sheet" style="max-width: 440px;" onclick="event.stopPropagation()">
+      <div class="modal-sheet-header">
+        <h3>Koreksi Entri Kas</h3>
+        <button type="button" class="modal-close-btn" onclick="tutupModalReversal()" aria-label="Tutup dialog">✕</button>
+      </div>
+      <div class="modal-sheet-body">
+        <p style="font-size:14.5px; margin-bottom:12px; color:var(--tinta);" id="reversalTargetNotice">
+          Entri #8 tetap terlihat di buku kas. Sistem akan menambah entri koreksi REVERSAL yang membalikkan efek saldo.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="reversalReason">Alasan Pembatalan (Wajib)</label>
+          <textarea id="reversalReason" class="form-textarea" placeholder="Contoh: Salah catat nominal, seharusnya Rp 4.800.000" required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-outline-garis" onclick="tutupModalReversal()">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="konfirmasiReversal()">Buat entri koreksi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================================
+       S3: BOTTOM SHEET DONASI & SIMULASI MIDTRANS SNAP (Design.md 6.7)
+       ======================================================================== -->
+  <div id="modalDonasiSheet" class="modal-backdrop" onclick="tutupSheetDonasi(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="donasiSheetTitle">
+      <div class="modal-sheet-header">
+        <h3 id="donasiSheetTitle">Donasi Atap Musala Al-Ikhlas</h3>
+        <button type="button" class="modal-close-btn" onclick="tutupSheetDonasi()" aria-label="Tutup sheet donasi">✕</button>
+      </div>
+      
+      <div class="modal-sheet-body" id="donasiFormContainer">
+        <!-- LANGKAH 1: PILIH NOMINAL -->
+        <div class="form-group">
+          <label class="form-label">Pilih Nominal Donasi</label>
+          <div class="nominal-grid">
+            <button type="button" class="nominal-btn" onclick="pilihNominalCepat(25000, this)">Rp 25.000</button>
+            <button type="button" class="nominal-btn" onclick="pilihNominalCepat(50000, this)">Rp 50.000</button>
+            <button type="button" class="nominal-btn selected" onclick="pilihNominalCepat(100000, this)">Rp 100.000</button>
+            <button type="button" class="nominal-btn" onclick="pilihNominalCepat(250000, this)">Rp 250.000</button>
+          </div>
+          <input type="text" id="donasiNominalInput" class="form-input rupiah" value="100.000" inputmode="numeric" oninput="formatInputRupiah(this)" placeholder="Nominal lain (min Rp 10.000)">
+        </div>
+
+        <!-- LANGKAH 2: DATA DIRI -->
+        <div class="form-group">
+          <label class="form-label" for="donaturName">Nama Donatur</label>
+          <input type="text" id="donaturName" class="form-input" value="Dina K." placeholder="Nama lengkap Anda">
+          <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="checkAnonim" onchange="toggleAnonim(this)">
+            <label for="checkAnonim" style="font-size:13.5px; color:var(--tinta);">Sembunyikan nama saya di buku kas (Anonim)</label>
+          </div>
+        </div>
+
+        <!-- PESAN DOA (FONT KALAM) -->
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <label class="form-label" for="donaturDoa">Pesan Doa (Opsional)</label>
+            <span style="font-size:12px; color:var(--tinta-redup);" id="charCountLabel">34/200</span>
+          </div>
+          <textarea id="donaturDoa" class="form-textarea" style="font-family: var(--font-tangan); font-size:17px;" maxlength="200" oninput="updateCharCount(this)">Semoga atapnya segera selesai, Pak.</textarea>
+        </div>
+
+        <!-- RINGKASAN & BIAYA MIDTRANS -->
+        <div style="background:var(--kertas); padding:14px; border:1px solid var(--garis); margin-bottom:20px; font-size:13.5px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>Nominal Donasi</span>
+            <strong id="ringkasanNominal" class="tabular-angka">Rp 100.000</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--tinta-redup);">
+            <span>Biaya Midtrans (0,7%)</span>
+            <span id="ringkasanFee" class="tabular-angka">Rp 700</span>
+          </div>
+          <div style="font-size:12px; color:var(--tinta-redup); border-top:1px dashed var(--garis-tegas); padding-top:6px; margin-top:6px;">
+            Biaya Midtrans Rp 700 dipotong dari donasi, tercatat di buku kas.
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" style="width:100%; height:52px;" onclick="bukaSnapSimulasi()">
+          Lanjut ke Pembayaran
+        </button>
+      </div>
+
+      <!-- SIMULASI LAYAR MIDTRANS SNAP (Design.md S3) -->
+      <div class="modal-sheet-body" id="snapSimulasiContainer" style="display:none;">
+        <div class="snap-badge">MIDTRANS SNAP (SANDBOX)</div>
+        <h4 style="font-size:18px; font-weight:700; margin-bottom:4px;" id="snapTotalDisplay">Total: Rp 100.000</h4>
+        <p style="font-size:12px; color:var(--tinta-redup); margin-bottom:16px;">Order ID: KASBUKA-20261027-012</p>
+
+        <p style="font-size:13.5px; font-weight:700; margin-bottom:8px;">Pilih Metode Pembayaran:</p>
+        
+        <div class="payment-method-item active">
+          <div>
+            <strong>QRIS (Semua Pembayaran)</strong>
+            <div style="font-size:12px; color:var(--tinta-redup);">BCA, Mandiri, GoPay, OVO, ShopeePay</div>
+          </div>
+          <span>✓</span>
+        </div>
+
+        <div class="payment-method-item">
+          <div>
+            <strong>GoPay</strong>
+            <div style="font-size:12px; color:var(--tinta-redup);">Langsung sambung ke aplikasi GoPay</div>
+          </div>
+        </div>
+
+        <div class="payment-method-item">
+          <div>
+            <strong>Transfer Virtual Account BCA</strong>
+            <div style="font-size:12px; color:var(--tinta-redup);">Verifikasi otomatis 24 jam</div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+          <button type="button" class="btn btn-primary" onclick="selesaikanSimulasiDonasi()">
+            Simulasikan pembayaran berhasil
+          </button>
+          <button type="button" class="btn btn-outline-garis" onclick="kembaliKeFormDonasi()">
+            Kembali
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================================
+       BAR BAWAH TETAP MOBILE (Design.md 5)
+       ======================================================================== -->
+  <aside class="mobile-sticky-bar" id="mobileStickyBar" aria-label="Aksi Donasi Cepat">
+    <div class="mobile-bar-saldo">
+      <span class="mobile-bar-label">Saldo terkini</span>
+      <span class="mobile-bar-val tabular-angka" id="mobileStickySaldo">Rp 7.955.050</span>
+    </div>
+    <button type="button" class="btn btn-primary" style="height:44px; padding:0 18px;" onclick="bukaSheetDonasi()">
+      Donasi sekarang
+    </button>
+  </aside>
+
+  <!-- Container Toast -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ========================================================================
+       FOOTER (Design.md 7)
+       ======================================================================== -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <strong style="color:var(--tinta);">Kasbuka</strong> — Buku kas penggalangan dana terbuka.
+        <div style="margin-top:4px;">Proyek portofolio, belum dipakai untuk donasi sungguhan (Midtrans Sandbox).</div>
+      </div>
+      <div>
+        <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       LOGIKA JAVASCRIPT MURNI (Vanilla JS & Array Ledger Terhitung)
+       ======================================================================== -->
+  <script>
+    /* ========================================================================
+       1. DATA TIRUAN AWAL (Design.md Bagian 8)
+       Array tunggal sebagai Single Source of Truth
+       ======================================================================== */
+    const INITIAL_LEDGER_ENTRIES = [
+      {
+        id: 11,
+        seq: 11,
+        occurredAt: '27 Okt 2026',
+        dateShort: '27 Okt',
+        type: 'OUT',
+        source: 'MANUAL',
+        amount: 4800000,
+        fee: 0,
+        description: 'Upah tukang 5 orang x 3 hari (koreksi dari #8)',
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: 'kuitansi',
+        reversesEntryId: null,
+        hash: '7be41d09',
+        prevHash: 'c40a99e2'
+      },
+      {
+        id: 10,
+        seq: 10,
+        occurredAt: '27 Okt 2026',
+        dateShort: '27 Okt',
+        type: 'REVERSAL',
+        source: 'MANUAL',
+        amount: 0,
+        fee: 0,
+        description: 'Membatalkan #8: nominal salah, seharusnya 4.800.000',
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: 8,
+        hash: 'c40a99e2',
+        prevHash: '1d73b5f8'
+      },
+      {
+        id: 9,
+        seq: 9,
+        occurredAt: '26 Okt 2026',
+        dateShort: '26 Okt',
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 1275000,
+        fee: 0,
+        description: 'Kotak amal Jumat',
+        donorName: 'Kotak amal Jumat',
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: '1d73b5f8',
+        prevHash: 'e9026ac1'
+      },
+      {
+        id: 8,
+        seq: 8,
+        occurredAt: '26 Okt 2026',
+        dateShort: '26 Okt',
+        type: 'OUT',
+        source: 'MANUAL',
+        amount: 4500000,
+        fee: 0,
+        description: 'Upah tukang 5 orang x 3 hari',
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: 'kuitansi',
+        reversesEntryId: null,
+        hash: 'e9026ac1',
+        prevHash: '5af8d3b7'
+      },
+      {
+        id: 7,
+        seq: 7,
+        occurredAt: '25 Okt 2026',
+        dateShort: '25 Okt',
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: 500000,
+        fee: 3500,
+        description: 'Rizal (Surabaya)',
+        donorName: 'Rizal (Surabaya)',
+        isAnonymous: false,
+        message: 'Semoga cepat selesai, nitip salam buat warga.',
+        proofType: null,
+        reversesEntryId: null,
+        hash: '5af8d3b7',
+        prevHash: 'a3f9120c'
+      },
+      {
+        id: 6,
+        seq: 6,
+        occurredAt: '25 Okt 2026',
+        dateShort: '25 Okt',
+        type: 'OUT',
+        source: 'MANUAL',
+        amount: 6350000,
+        fee: 0,
+        description: 'Semen 40 sak dan pasir 2 rit, Toko Bangunan Makmur',
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: 'nota-semen',
+        reversesEntryId: null,
+        hash: 'a3f9120c',
+        prevHash: '82cd04be'
+      },
+      {
+        id: 5,
+        seq: 5,
+        occurredAt: '24 Okt 2026',
+        dateShort: '24 Okt',
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: 2000000,
+        fee: 14000,
+        description: 'Keluarga Besar H. Mansur',
+        donorName: 'Keluarga Besar H. Mansur',
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: '82cd04be',
+        prevHash: '9b11e7a4'
+      },
+      {
+        id: 4,
+        seq: 4,
+        occurredAt: '24 Okt 2026',
+        dateShort: '24 Okt',
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: 250000,
+        fee: 1750,
+        description: 'Anonim',
+        donorName: 'Anonim',
+        isAnonymous: true,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: '9b11e7a4',
+        prevHash: 'f6e2c8d0'
+      },
+      {
+        id: 3,
+        seq: 3,
+        occurredAt: '23 Okt 2026',
+        dateShort: '23 Okt',
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: 100000,
+        fee: 700,
+        description: 'Dina K.',
+        donorName: 'Dina K.',
+        isAnonymous: false,
+        message: 'Semoga atapnya segera selesai, Pak.',
+        proofType: null,
+        reversesEntryId: null,
+        hash: 'f6e2c8d0',
+        prevHash: '3c5ab719'
+      },
+      {
+        id: 2,
+        seq: 2,
+        occurredAt: '22 Okt 2026',
+        dateShort: '22 Okt',
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 5000000,
+        fee: 0,
+        description: 'Bpk. Sholeh',
+        donorName: 'Bpk. Sholeh',
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: '3c5ab719',
+        prevHash: '04d8e6f2'
+      },
+      {
+        id: 1,
+        seq: 1,
+        occurredAt: '22 Okt 2026',
+        dateShort: '22 Okt',
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 10000000,
+        fee: 0,
+        description: 'Saldo awal dari kas takmir',
+        donorName: 'Kas Takmir',
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: '04d8e6f2',
+        prevHash: '0000000000000000000000000000000000000000000000000000000000000000'
+      }
+    ];
+
+    // Salinan data yang aktif berjalan
+    let ledgerEntries = JSON.parse(JSON.stringify(INITIAL_LEDGER_ENTRIES));
+    let selectedReversalSeq = null;
+    let targetDonationGoal = 85000000;
+
+    /* ========================================================================
+       2. FUNGSI PERHITUNGAN SALDO DARI LEDGER (PRD US-1 & Design.md 8)
+       Saldo = Σ(masuk - fee) - Σ(keluar) dengan REVERSAL membatalkan efek entri
+       ======================================================================== */
+    function hitungKeuanganLedger() {
+      // Himpunan entri yang dibatalkan oleh REVERSAL
+      const reversedIds = new Set();
+      ledgerEntries.forEach(entry => {
+        if (entry.type === 'REVERSAL' && entry.reversesEntryId) {
+          reversedIds.add(entry.reversesEntryId);
+        }
+      });
+
+      let totalMasukBersih = 0;
+      let totalKeluar = 0;
+
+      // Iterasi dari entri terlama (urutan kronologis) untuk hitung running balance
+      const kronologis = [...ledgerEntries].sort((a, b) => a.seq - b.seq);
+      let saldoBerjalan = 0;
+      const runningBalanceMap = {};
+
+      kronologis.forEach(entry => {
+        const isReversed = reversedIds.has(entry.id);
+
+        if (entry.type === 'IN') {
+          if (!isReversed) {
+            const net = entry.amount - (entry.fee || 0);
+            totalMasukBersih += net;
+            saldoBerjalan += net;
+          }
+        } else if (entry.type === 'OUT') {
+          if (!isReversed) {
+            totalKeluar += entry.amount;
+            saldoBerjalan -= entry.amount;
+          }
+        } else if (entry.type === 'REVERSAL') {
+          // Entri yang dibatalkan
+          const target = ledgerEntries.find(e => e.id === entry.reversesEntryId);
+          if (target) {
+            if (target.type === 'OUT') {
+              saldoBerjalan += target.amount; // Uang keluar dibatalkan, saldo bertambah balik
+            } else if (target.type === 'IN') {
+              saldoBerjalan -= (target.amount - (target.fee || 0));
+            }
+          }
+        }
+        runningBalanceMap[entry.id] = saldoBerjalan;
+      });
+
+      const saldoAkhir = totalMasukBersih - totalKeluar;
+
+      return {
+        totalMasuk: totalMasukBersih,
+        totalKeluar: totalKeluar,
+        saldo: saldoAkhir,
+        reversedIds: reversedIds,
+        runningBalanceMap: runningBalanceMap
+      };
+    }
+
+    function formatRupiah(num) {
+      if (num === null || num === undefined) return 'Rp 0';
+      const isNegatif = num < 0;
+      const absVal = Math.abs(num);
+      return (isNegatif ? '− Rp ' : 'Rp ') + absVal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    /* ========================================================================
+       3. RENDER UI TABEL & PERSAMAAN SALDO
+       ======================================================================== */
+    function renderSemuaTampilan() {
+      const calc = hitungKeuanganLedger();
+
+      // Update Persamaan Saldo di S2 (Halaman Publik)
+      const s2Masuk = document.getElementById('s2TotalMasuk');
+      const s2Keluar = document.getElementById('s2TotalKeluar');
+      const s2Saldo = document.getElementById('s2TotalSaldo');
+      const s2Note = document.getElementById('s2EquationNote');
+      
+      if (s2Masuk) s2Masuk.textContent = formatRupiah(calc.totalMasuk);
+      if (s2Keluar) s2Keluar.textContent = 'Rp ' + calc.totalKeluar.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (s2Saldo) s2Saldo.textContent = formatRupiah(calc.saldo);
+      if (s2Note) s2Note.textContent = `Dihitung dari ${ledgerEntries.length} entri. Masuk dihitung setelah biaya Midtrans.`;
+
+      // Update Target Progress
+      const percent = Math.min(100, Math.round((calc.totalMasuk / targetDonationGoal) * 100));
+      const targetPercentText = document.getElementById('targetPercentageText');
+      const targetFill = document.getElementById('targetProgressFill');
+      if (targetPercentText) targetPercentText.textContent = `${percent}% terkumpul`;
+      if (targetFill) targetFill.style.width = `${percent}%`;
+
+      // Update Saldo Dasbor S4
+      const dMasuk = document.getElementById('dashTotalMasuk');
+      const dKeluar = document.getElementById('dashTotalKeluar');
+      const dSaldo = document.getElementById('dashTotalSaldo');
+      const dNote = document.getElementById('dashEquationNote');
+      if (dMasuk) dMasuk.textContent = formatRupiah(calc.totalMasuk);
+      if (dKeluar) dKeluar.textContent = 'Rp ' + calc.totalKeluar.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (dSaldo) dSaldo.textContent = formatRupiah(calc.saldo);
+      if (dNote) dNote.textContent = `Dihitung dari ${ledgerEntries.length} entri. Catatan tidak dapat diedit atau dihapus.`;
+
+      // Update Sticky Mobile Saldo & Hero Saldo
+      const mSaldo = document.getElementById('mobileStickySaldo');
+      const hSaldo = document.getElementById('heroHeaderSaldo');
+      if (mSaldo) mSaldo.textContent = formatRupiah(calc.saldo);
+      if (hSaldo) hSaldo.textContent = 'Saldo ' + formatRupiah(calc.saldo);
+
+      // Update Badge Entri
+      const countBadge = document.getElementById('entryCountBadge');
+      if (countBadge) countBadge.textContent = `${ledgerEntries.length} entri tercatat`;
+
+      // Render Baris Tabel Desktop & Mobile List
+      renderLedgerTable(calc);
+      renderDashboardTable(calc);
+    }
+
+    function renderLedgerTable(calc) {
+      const tbody = document.getElementById('ledgerTableBody');
+      const mList = document.getElementById('mobileLedgerList');
+      if (!tbody || !mList) return;
+
+      tbody.innerHTML = '';
+      mList.innerHTML = '';
+
+      // Entri diurutkan seq menurun (terbaru di atas)
+      const sorted = [...ledgerEntries].sort((a, b) => b.seq - a.seq);
+
+      sorted.forEach(entry => {
+        const isReversed = calc.reversedIds.has(entry.id);
+        const runningBal = calc.runningBalanceMap[entry.id] || 0;
+
+        // --- 1. BARIS TABEL DESKTOP ---
+        const tr = document.createElement('tr');
+        tr.id = `desktop-row-${entry.seq}`;
+        if (entry.isNewAnimation) {
+          tr.classList.add('row-baru-animasi');
+        }
+
+        // Kolom Masuk & Keluar & Saldo
+        let masukCol = '—';
+        let keluarCol = '—';
+        let saldoCol = formatRupiah(runningBal);
+
+        if (entry.type === 'IN') {
+          masukCol = `<span class="${isReversed ? 'reversal-strikethrough' : ''}" style="color:var(--masuk);">+ ${formatRupiah(entry.amount).replace('Rp ', '')}</span>`;
+        } else if (entry.type === 'OUT') {
+          keluarCol = `<span class="${isReversed ? 'reversal-strikethrough' : ''}" style="color:var(--keluar);">− ${formatRupiah(entry.amount).replace('Rp ', '')}</span>`;
+        } else if (entry.type === 'REVERSAL') {
+          // Reversal note
+          const reversedTarget = ledgerEntries.find(e => e.id === entry.reversesEntryId);
+          if (reversedTarget && reversedTarget.type === 'OUT') {
+            keluarCol = `<span style="color:var(--masuk); font-size:13px;">(+${formatRupiah(reversedTarget.amount).replace('Rp ', '')} balik)</span>`;
+          }
+        }
+
+        // Status Pill
+        let pillHtml = '';
+        if (entry.type === 'REVERSAL') {
+          pillHtml = `<span class="status-pill pill-pengurus">Dicatat pengurus</span>`;
+        } else if (isReversed) {
+          // Cari entri reversal yang membatalkannya
+          const revEntry = ledgerEntries.find(e => e.reversesEntryId === entry.id);
+          const revSeq = revEntry ? revEntry.seq : '';
+          pillHtml = `<span class="status-pill pill-reversal">Dibatalkan oleh #${revSeq}</span>`;
+        } else if (entry.source === 'MIDTRANS') {
+          pillHtml = `<span class="status-pill pill-midtrans">Dibayar lewat Midtrans</span>`;
+        } else {
+          pillHtml = `<span class="status-pill pill-pengurus">Dicatat pengurus</span>`;
+        }
+
+        // Tautan Lihat Bukti
+        let buktiHtml = '';
+        if (entry.proofType) {
+          buktiHtml = `<button type="button" class="btn-lihat-bukti" onclick="bukaModalBukti(${entry.seq}, '${entry.proofType}', '${escapeHtml(entry.description)}')">Lihat bukti</button>`;
+        }
+
+        // Pesan Doa (Font Kalam)
+        let doaHtml = '';
+        if (entry.message) {
+          doaHtml = `<div class="doa-teks">"${escapeHtml(entry.message)}"</div>`;
+        }
+
+        // Tombol Salin Hash (8 karakter awal)
+        const hashDisplay = entry.hash.substring(0, 8);
+        const hashCopyBtn = `<button type="button" class="btn-hash-copy" title="Salin hash: ${entry.hash}" onclick="salinHash('${entry.hash}', this)">
+          ${hashDisplay}… <span style="font-size:10px;">📋</span>
+        </button>`;
+
+        tr.innerHTML = `
+          <td class="col-no">#${entry.seq}</td>
+          <td class="col-tgl">${entry.dateShort}</td>
+          <td>
+            <div class="desc-title ${isReversed ? 'reversal-strikethrough' : ''}">${escapeHtml(entry.description)}</div>
+            ${doaHtml}
+            <div class="desc-sub">
+              ${pillHtml}
+              ${buktiHtml}
+              ${hashCopyBtn}
+            </div>
+          </td>
+          <td class="col-kanan tabular-angka">${masukCol}</td>
+          <td class="col-kanan tabular-angka">${keluarCol}</td>
+          <td class="col-saldo tabular-angka" style="font-weight:700;">${saldoCol}</td>
+        `;
+        tbody.appendChild(tr);
+
+        // --- 2. BARIS BERGARIS MOBILE (<ol> semantik 2 tingkat) ---
+        const li = document.createElement('li');
+        li.className = 'mobile-ledger-item';
+        li.id = `mobile-row-${entry.seq}`;
+        if (entry.isNewAnimation) li.classList.add('row-baru-animasi');
+        li.onclick = () => li.classList.toggle('expanded');
+
+        let mobileAmountHtml = '';
+        if (entry.type === 'IN') {
+          mobileAmountHtml = `<span class="${isReversed ? 'reversal-strikethrough' : ''}" style="color:var(--masuk);">+ ${formatRupiah(entry.amount)}</span>`;
+        } else if (entry.type === 'OUT') {
+          mobileAmountHtml = `<span class="${isReversed ? 'reversal-strikethrough' : ''}" style="color:var(--keluar);">− ${formatRupiah(entry.amount)}</span>`;
+        } else {
+          mobileAmountHtml = `<span style="color:var(--tinta-redup); font-size:13px;">Koreksi</span>`;
+        }
+
+        li.innerHTML = `
+          <div class="mobile-tier-1">
+            <div class="mobile-seq-desc">
+              <span class="mobile-seq-tag">#${entry.seq}</span>
+              <span class="${isReversed ? 'reversal-strikethrough' : ''}">${escapeHtml(entry.description)}</span>
+            </div>
+            <div class="mobile-amount tabular-angka">${mobileAmountHtml}</div>
+          </div>
+          ${entry.message ? `<div class="doa-teks" style="font-size:15px; margin-top:4px;">"${escapeHtml(entry.message)}"</div>` : ''}
+          <div class="mobile-tier-2">
+            <span>${entry.dateShort}</span>
+            ${pillHtml}
+            ${entry.proofType ? `<button type="button" class="btn-lihat-bukti" onclick="event.stopPropagation(); bukaModalBukti(${entry.seq}, '${entry.proofType}', '${escapeHtml(entry.description)}')">Lihat bukti</button>` : ''}
+          </div>
+          <div class="mobile-running-balance tabular-angka">
+            Saldo setelah entri ini: <strong>${formatRupiah(runningBal)}</strong> • Hash: ${entry.hash.substring(0, 8)}…
+          </div>
+        `;
+        mList.appendChild(li);
+      });
+    }
+
+    function renderDashboardTable(calc) {
+      const dBody = document.getElementById('dashboardTableBody');
+      if (!dBody) return;
+      dBody.innerHTML = '';
+
+      const sorted = [...ledgerEntries].sort((a, b) => b.seq - a.seq);
+
+      sorted.forEach(entry => {
+        const isReversed = calc.reversedIds.has(entry.id);
+        const tr = document.createElement('tr');
+
+        let nominalText = '';
+        if (entry.type === 'IN') {
+          nominalText = `+ ${formatRupiah(entry.amount)}`;
+        } else if (entry.type === 'OUT') {
+          nominalText = `− ${formatRupiah(entry.amount)}`;
+        } else {
+          nominalText = `Koreksi`;
+        }
+
+        let aksiHtml = '—';
+        if (entry.type !== 'REVERSAL' && !isReversed) {
+          aksiHtml = `<button type="button" class="btn btn-sm btn-outline-garis" style="color:var(--keluar); border-color:var(--keluar); font-size:12.5px; height:32px;" onclick="bukaModalReversal(${entry.seq})">Batalkan</button>`;
+        } else if (isReversed) {
+          aksiHtml = `<span style="font-size:12px; color:var(--keluar);">Dibatalkan</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="col-no">#${entry.seq}</td>
+          <td class="col-tgl">${entry.dateShort}</td>
+          <td>
+            <div class="${isReversed ? 'reversal-strikethrough' : ''}">${escapeHtml(entry.description)}</div>
+          </td>
+          <td class="col-kanan tabular-angka">${nominalText}</td>
+          <td style="text-align:center;">${aksiHtml}</td>
+        `;
+        dBody.appendChild(tr);
+      });
+    }
+
+    /* ========================================================================
+       4. ANIMASI 1: TYPEWRITER HERO LANDING (Design.md 4.4 Gerak 1)
+       Satu baris ledger "ditulis" huruf demi huruf (±1,2 detik), lalu berhenti
+       ======================================================================== */
+    function jalankanAnimasiHeroTypewriter() {
+      const el = document.getElementById('typewriterText');
+      if (!el) return;
+      const targetText = '"Semoga atapnya segera selesai, Pak."';
+      el.textContent = '';
+      let idx = 0;
+
+      // Cek prefers-reduced-motion
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = targetText;
+        return;
+      }
+
+      const interval = setInterval(() => {
+        if (idx < targetText.length) {
+          el.textContent += targetText.charAt(idx);
+          idx++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 35);
+    }
+
+    /* ========================================================================
+       5. ANIMASI 3: PERIKSA KEUTUHAN BUKU / HASH CHAIN SCAN (Design.md 4.4 & 6.8)
+       Menyapu baris dari bawah ke atas, 60ms per baris, lalu hasil VALID
+       ======================================================================== */
+    async function periksaKeutuhanBuku() {
+      const btn = document.getElementById('btnPeriksaKeutuhan');
+      const panel = document.getElementById('integrityPanel');
+      if (!btn || !panel) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Memeriksa rantai hash…';
+
+      panel.className = 'integrity-panel';
+      panel.style.display = 'none';
+
+      // Urutkan entri dari urutan kronologis (bawah ke atas pada tampilan tabel)
+      const total = ledgerEntries.length;
+      const kronologis = [...ledgerEntries].sort((a, b) => a.seq - b.seq);
+
+      for (let i = 0; i < kronologis.length; i++) {
+        const item = kronologis[i];
+        const rowDesktop = document.getElementById(`desktop-row-${item.seq}`);
+        const rowMobile = document.getElementById(`mobile-row-${item.seq}`);
+
+        if (rowDesktop) rowDesktop.classList.add('row-sweep-valid');
+        if (rowMobile) rowMobile.classList.add('row-sweep-valid');
+
+        // Delay 60ms per baris sesuai spek 4.4
+        await new Promise(r => setTimeout(r, 60));
+
+        // Hapus highlight setelah scan
+        setTimeout(() => {
+          if (rowDesktop) rowDesktop.classList.remove('row-sweep-valid');
+          if (rowMobile) rowMobile.classList.remove('row-sweep-valid');
+        }, 300);
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Periksa keutuhan buku';
+
+      // Tampilkan hasil VALID
+      const lastEntry = [...ledgerEntries].sort((a, b) => b.seq - a.seq)[0];
+      panel.className = 'integrity-panel valid';
+      document.getElementById('integrityStatusText').textContent = 
+        `Rantai ${total} entri utuh. Hash terakhir ${lastEntry.hash.substring(0, 8)}…`;
+      document.getElementById('integrityDetailText').textContent = 
+        'Ini memastikan catatan tidak diubah setelah ditulis. Ini tidak membuktikan semua uang tercatat.';
+      
+      tampilkanToast('Keutuhan buku kas diverifikasi: Rantai VALID.');
+    }
+
+    /* ========================================================================
+       6. INTERAKSI S3: SHEET DONASI & SIMULASI MIDTRANS SNAP
+       ======================================================================== */
+    function bukaSheetDonasi() {
+      const modal = document.getElementById('modalDonasiSheet');
+      const formContainer = document.getElementById('donasiFormContainer');
+      const snapContainer = document.getElementById('snapSimulasiContainer');
+      if (modal) {
+        modal.classList.add('open');
+        formContainer.style.display = 'block';
+        snapContainer.style.display = 'none';
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function tutupSheetDonasi(e) {
+      const modal = document.getElementById('modalDonasiSheet');
+      if (modal) {
+        modal.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function pilihNominalCepat(nominal, btnEl) {
+      document.querySelectorAll('.nominal-btn').forEach(b => b.classList.remove('selected'));
+      if (btnEl) btnEl.classList.add('selected');
+      const input = document.getElementById('donasiNominalInput');
+      if (input) {
+        input.value = nominal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        hitungUlangBiayaDonasi(nominal);
+      }
+    }
+
+    function hitungUlangBiayaDonasi(nominal) {
+      const fee = Math.round(nominal * 0.007); // 0.7% QRIS fee Midtrans
+      const ringkasanNominal = document.getElementById('ringkasanNominal');
+      const ringkasanFee = document.getElementById('ringkasanFee');
+      if (ringkasanNominal) ringkasanNominal.textContent = formatRupiah(nominal);
+      if (ringkasanFee) ringkasanFee.textContent = formatRupiah(fee);
+    }
+
+    function toggleAnonim(checkbox) {
+      const namaInput = document.getElementById('donaturName');
+      if (checkbox.checked) {
+        namaInput.value = 'Anonim';
+        namaInput.disabled = true;
+      } else {
+        namaInput.value = 'Dina K.';
+        namaInput.disabled = false;
+      }
+    }
+
+    function updateCharCount(textarea) {
+      const label = document.getElementById('charCountLabel');
+      if (label) label.textContent = `${textarea.value.length}/200`;
+    }
+
+    function bukaSnapSimulasi() {
+      const input = document.getElementById('donasiNominalInput');
+      const nominalRaw = parseInt(input.value.replace(/\./g, ''), 10) || 0;
+
+      if (nominalRaw < 10000) {
+        alert('Nominal minimal donasi adalah Rp 10.000.');
+        return;
+      }
+
+      document.getElementById('donasiFormContainer').style.display = 'none';
+      const snapContainer = document.getElementById('snapSimulasiContainer');
+      snapContainer.style.display = 'block';
+      document.getElementById('snapTotalDisplay').textContent = `Total: ${formatRupiah(nominalRaw)}`;
+    }
+
+    function kembaliKeFormDonasi() {
+      document.getElementById('snapSimulasiContainer').style.display = 'none';
+      document.getElementById('donasiFormContainer').style.display = 'block';
+    }
+
+    /* Simulasi Pembayaran Sukses (US-2 & Gerak 2) */
+    function selesaikanSimulasiDonasi() {
+      const input = document.getElementById('donasiNominalInput');
+      const nominal = parseInt(input.value.replace(/\./g, ''), 10) || 100000;
+      const isAnon = document.getElementById('checkAnonim').checked;
+      const donatur = isAnon ? 'Anonim' : (document.getElementById('donaturName').value.trim() || 'Anonim');
+      const doa = document.getElementById('donaturDoa').value.trim();
+      const fee = Math.round(nominal * 0.007);
+
+      // Buat entri baru #12 di puncak tabel
+      const newSeq = ledgerEntries.length + 1;
+      const lastEntry = [...ledgerEntries].sort((a, b) => b.seq - a.seq)[0];
+
+      // Simulasi hash SHA-256 realistis
+      const mockHash = Math.random().toString(16).substring(2, 10);
+
+      const newEntry = {
+        id: newSeq,
+        seq: newSeq,
+        occurredAt: '27 Okt 2026',
+        dateShort: '27 Okt',
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: nominal,
+        fee: fee,
+        description: isAnon ? 'Anonim' : donatur,
+        donorName: donatur,
+        isAnonymous: isAnon,
+        message: doa || null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: mockHash,
+        prevHash: lastEntry ? lastEntry.hash : '00000000',
+        isNewAnimation: true // Memicu Gerak 2
+      };
+
+      // Tambahkan ke array ledger
+      ledgerEntries.unshift(newEntry);
+
+      // Tutup sheet donasi
+      tutupSheetDonasi();
+
+      // Pindah ke layar S2 jika belum di S2
+      navigasiLayar('/c/atap-musala-al-ikhlas');
+
+      // Render ulang seluruh UI dengan saldo baru
+      renderSemuaTampilan();
+
+      // Tampilkan toast
+      tampilkanToast(`Donasi ${formatRupiah(nominal)} tercatat sebagai entri #${newSeq}.`);
+
+      // Hilangkan status highlight setelah 2 detik
+      setTimeout(() => {
+        newEntry.isNewAnimation = false;
+      }, 2000);
+    }
+
+    /* ========================================================================
+       7. INTERAKSI S4: FORM PENGELUARAN, PEMASUKAN MANUAL, DAN REVERSAL
+       ======================================================================== */
+    function pilihTabDasbor(tab) {
+      const btnOut = document.getElementById('tabPengeluaranBtn');
+      const btnIn = document.getElementById('tabPemasukanBtn');
+      const boxOut = document.getElementById('formPengeluaranBox');
+      const boxIn = document.getElementById('formPemasukanBox');
+
+      if (tab === 'pengeluaran') {
+        btnOut.classList.add('active');
+        btnIn.classList.remove('active');
+        btnOut.setAttribute('aria-selected', 'true');
+        btnIn.setAttribute('aria-selected', 'false');
+        boxOut.style.display = 'block';
+        boxIn.style.display = 'none';
+      } else {
+        btnOut.classList.remove('active');
+        btnIn.classList.add('active');
+        btnOut.setAttribute('aria-selected', 'false');
+        btnIn.setAttribute('aria-selected', 'true');
+        boxOut.style.display = 'none';
+        boxIn.style.display = 'block';
+      }
+    }
+
+    function pratinjauFotoNota(fileInput) {
+      const previewBox = document.getElementById('notaPreviewContainer');
+      const previewImg = document.getElementById('notaPreviewImg');
+      if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        // Validasi ukuran <= 5MB
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Ukuran file foto bukti maksimal 5 MB.');
+          fileInput.value = '';
+          previewBox.style.display = 'none';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewImg.src = e.target.result;
+          previewBox.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function submitPengeluaran(e) {
+      e.preventDefault();
+      const nominalRaw = parseInt(document.getElementById('outNominal').value.replace(/\./g, ''), 10) || 0;
+      const ket = document.getElementById('outKeterangan').value.trim();
+      const tgl = document.getElementById('outTanggal').value.trim();
+      const foto = document.getElementById('outFotoNota').files[0];
+
+      const err = document.getElementById('outNominalError');
+      const calc = hitungKeuanganLedger();
+
+      // Validasi nominal <= saldo saat ini (PRD US-3)
+      if (nominalRaw > calc.saldo) {
+        err.style.display = 'block';
+        err.textContent = `Nominal ${formatRupiah(nominalRaw)} melebihi saldo tersedia (${formatRupiah(calc.saldo)}). Sesuaikan nominal pengeluaran.`;
+        return;
+      }
+      err.style.display = 'none';
+
+      if (!foto) {
+        alert('Foto bukti nota wajib diunggah.');
+        return;
+      }
+
+      const newSeq = ledgerEntries.length + 1;
+      const lastEntry = [...ledgerEntries].sort((a, b) => b.seq - a.seq)[0];
+      const mockHash = Math.random().toString(16).substring(2, 10);
+
+      const newEntry = {
+        id: newSeq,
+        seq: newSeq,
+        occurredAt: tgl,
+        dateShort: '27 Okt',
+        type: 'OUT',
+        source: 'MANUAL',
+        amount: nominalRaw,
+        fee: 0,
+        description: ket,
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: 'nota-semen',
+        reversesEntryId: null,
+        hash: mockHash,
+        prevHash: lastEntry ? lastEntry.hash : '00000000',
+        isNewAnimation: true
+      };
+
+      ledgerEntries.unshift(newEntry);
+      document.getElementById('formPengeluaran').reset();
+      document.getElementById('notaPreviewContainer').style.display = 'none';
+
+      renderSemuaTampilan();
+      tampilkanToast(`Pengeluaran ${formatRupiah(nominalRaw)} berhasil dicatat sebagai entri #${newSeq}.`);
+    }
+
+    function submitPemasukanManual(e) {
+      e.preventDefault();
+      const nominalRaw = parseInt(document.getElementById('inNominal').value.replace(/\./g, ''), 10) || 0;
+      const nama = document.getElementById('inNamaDonatur').value.trim();
+      const ket = document.getElementById('inKeterangan').value.trim();
+      const tgl = document.getElementById('inTanggal').value.trim();
+
+      const newSeq = ledgerEntries.length + 1;
+      const lastEntry = [...ledgerEntries].sort((a, b) => b.seq - a.seq)[0];
+      const mockHash = Math.random().toString(16).substring(2, 10);
+
+      const newEntry = {
+        id: newSeq,
+        seq: newSeq,
+        occurredAt: tgl,
+        dateShort: '27 Okt',
+        type: 'IN',
+        source: 'MANUAL',
+        amount: nominalRaw,
+        fee: 0,
+        description: `${nama} (${ket})`,
+        donorName: nama,
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: null,
+        hash: mockHash,
+        prevHash: lastEntry ? lastEntry.hash : '00000000',
+        isNewAnimation: true
+      };
+
+      ledgerEntries.unshift(newEntry);
+      document.getElementById('formPemasukan').reset();
+
+      renderSemuaTampilan();
+      tampilkanToast(`Pemasukan manual ${formatRupiah(nominalRaw)} berhasil dicatat sebagai entri #${newSeq}.`);
+    }
+
+    /* Dialog Reversal (US-5) */
+    function bukaModalReversal(seq) {
+      selectedReversalSeq = seq;
+      const target = ledgerEntries.find(e => e.seq === seq);
+      if (!target) return;
+
+      document.getElementById('reversalTargetNotice').textContent = 
+        `Entri #${seq} ("${target.description}") tetap terlihat di buku kas. Sistem akan menambah entri koreksi REVERSAL yang membalikkan efek saldo.`;
+      document.getElementById('reversalReason').value = '';
+
+      document.getElementById('modalReversal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function tutupModalReversal() {
+      document.getElementById('modalReversal').classList.remove('open');
+      document.body.style.overflow = '';
+      selectedReversalSeq = null;
+    }
+
+    function konfirmasiReversal() {
+      const reason = document.getElementById('reversalReason').value.trim();
+      if (!reason) {
+        alert('Alasan pembatalan wajib diisi.');
+        return;
+      }
+
+      const target = ledgerEntries.find(e => e.seq === selectedReversalSeq);
+      if (!target) return;
+
+      const newSeq = ledgerEntries.length + 1;
+      const lastEntry = [...ledgerEntries].sort((a, b) => b.seq - a.seq)[0];
+      const mockHash = Math.random().toString(16).substring(2, 10);
+
+      const reversalEntry = {
+        id: newSeq,
+        seq: newSeq,
+        occurredAt: '27 Okt 2026',
+        dateShort: '27 Okt',
+        type: 'REVERSAL',
+        source: 'MANUAL',
+        amount: 0,
+        fee: 0,
+        description: `Membatalkan #${target.seq}: ${reason}`,
+        donorName: null,
+        isAnonymous: false,
+        message: null,
+        proofType: null,
+        reversesEntryId: target.id,
+        hash: mockHash,
+        prevHash: lastEntry ? lastEntry.hash : '00000000',
+        isNewAnimation: true
+      };
+
+      ledgerEntries.unshift(reversalEntry);
+      tutupModalReversal();
+      renderSemuaTampilan();
+      tampilkanToast(`Entri #${target.seq} berhasil dibatalkan oleh entri koreksi #${newSeq}.`);
+    }
+
+    /* Modal Lihat Bukti (US-1 & US-3) */
+    function bukaModalBukti(seq, proofType, desc) {
+      document.getElementById('modalBuktiTitle').textContent = `Bukti Nota #${seq}`;
+      document.getElementById('modalBuktiDesc').textContent = 
+        `Foto nota asli untuk pengeluaran: "${desc}". Terverifikasi dan disimpan di ledger Kasbuka.`;
+      
+      const modal = document.getElementById('modalBuktiNota');
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function tutupModalBukti() {
+      const modal = document.getElementById('modalBuktiNota');
+      modal.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    /* Salin Hash ke Clipboard */
+    function salinHash(hash, btnEl) {
+      navigator.clipboard.writeText(hash).then(() => {
+        const originalText = btnEl.innerHTML;
+        btnEl.innerHTML = `Tersalin! ✓`;
+        setTimeout(() => {
+          btnEl.innerHTML = originalText;
+        }, 1500);
+      });
+    }
+
+    /* Bagikan ke WhatsApp (US-9) */
+    function bagikanWhatsApp() {
+      const calc = hitungKeuanganLedger();
+      const text = encodeURIComponent(
+        `Buku Kas Transparan: Atap Musala Al-Ikhlas bocor, warga Karangpoh renovasi bersama.\n\n` +
+        `Saldo terkini: ${formatRupiah(calc.saldo)} (Total Masuk: ${formatRupiah(calc.totalMasuk)})\n` +
+        `Buka dan periksa seluruh uang masuk & keluar dengan foto nota di: https://kasbuka.org/c/atap-musala-al-ikhlas`
+      );
+      window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+
+    /* ========================================================================
+       8. NAVIGASI LAYAR VIA URL HASH (Design.md 7)
+       S1: #/, S2: #/c/atap-musala-al-ikhlas, S4: #/dashboard
+       ======================================================================== */
+    function navigasiLayar(rute) {
+      window.location.hash = rute;
+      sinkronkanLayarBerdasarkanHash();
+    }
+
+    function sinkronkanLayarBerdasarkanHash() {
+      const hash = window.location.hash || '#/';
+      const s1 = document.getElementById('screenS1');
+      const s2 = document.getElementById('screenS2');
+      const s4 = document.getElementById('screenS4');
+
+      const btn1 = document.getElementById('btnNavS1');
+      const btn2 = document.getElementById('btnNavS2');
+      const btn4 = document.getElementById('btnNavS4');
+
+      // Reset active
+      [s1, s2, s4].forEach(s => s && s.classList.remove('active-screen'));
+      [btn1, btn2, btn4].forEach(b => b && b.classList.remove('active'));
+
+      if (hash.startsWith('#/dashboard')) {
+        if (s4) s4.classList.add('active-screen');
+        if (btn4) btn4.classList.add('active');
+        window.scrollTo(0, 0);
+      } else if (hash.startsWith('#/c/')) {
+        if (s2) s2.classList.add('active-screen');
+        if (btn2) btn2.classList.add('active');
+        window.scrollTo(0, 0);
+      } else {
+        // Default S1 Landing
+        if (s1) s1.classList.add('active-screen');
+        if (btn1) btn1.classList.add('active');
+        jalankanAnimasiHeroTypewriter();
+        window.scrollTo(0, 0);
+      }
+    }
+
+    /* Toggle Status Tampilan (Design.md 6.10) */
+    function gantiStatusTampilan(status) {
+      if (status === 'empty') {
+        ledgerEntries = [];
+        renderSemuaTampilan();
+        const tbody = document.getElementById('ledgerTableBody');
+        const mList = document.getElementById('mobileLedgerList');
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="6" style="padding:40px; text-align:left; color:var(--tinta-redup);">Buku kas masih kosong. Entri pertama muncul setelah ada uang masuk.</td></tr>`;
+        }
+        if (mList) {
+          mList.innerHTML = `<li style="padding:40px 16px; color:var(--tinta-redup);">Buku kas masih kosong. Entri pertama muncul setelah ada uang masuk.</li>`;
+        }
+      } else if (status === 'network-error') {
+        const tbody = document.getElementById('ledgerTableBody');
+        const mList = document.getElementById('mobileLedgerList');
+        const errorHtml = `
+          <div class="state-message-box">
+            <div class="state-message-title">Tidak bisa memuat buku kas.</div>
+            <p style="color:var(--tinta-redup); margin-bottom:14px;">Periksa sinyal, lalu coba lagi.</p>
+            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('stateSelector').value='normal'; gantiStatusTampilan('normal');">Coba lagi</button>
+          </div>
+        `;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:0;">${errorHtml}</td></tr>`;
+        if (mList) mList.innerHTML = `<li>${errorHtml}</li>`;
+      } else {
+        // Normal
+        ledgerEntries = JSON.parse(JSON.stringify(INITIAL_LEDGER_ENTRIES));
+        renderSemuaTampilan();
+      }
+    }
+
+    /* Format Input Ribuan Rupiah */
+    function formatInputRupiah(el) {
+      let val = el.value.replace(/[^0-9]/g, '');
+      if (val) {
+        el.value = parseInt(val, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      } else {
+        el.value = '';
+      }
+      if (el.id === 'donasiNominalInput') {
+        const num = parseInt(val, 10) || 0;
+        hitungUlangBiayaDonasi(num);
+      }
+    }
+
+    /* Helper Toast */
+    function tampilkanToast(pesan) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const t = document.createElement('div');
+      t.className = 'toast-msg';
+      t.textContent = pesan;
+      container.appendChild(t);
+      setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => t.remove(), 300);
+      }, 3500);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+
+    // Keyboard Accessibility: Escape untuk menutup sheet / modal
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        tutupSheetDonasi();
+        tutupModalBukti();
+        tutupModalReversal();
+      }
+    });
+
+    // Inisialisasi saat halaman dimuat
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSemuaTampilan();
+      sinkronkanLayarBerdasarkanHash();
+      window.addEventListener('hashchange', sinkronkanLayarBerdasarkanHash);
+    });
+  </script>
+</body>
+</html>
