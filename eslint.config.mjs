@@ -17,6 +17,13 @@ export default tseslint.config(
     },
   },
   {
+    files: ['tests/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
     files: ['scripts/**/*.mjs', 'scripts/**/*.js', '*.mjs'],
     languageOptions: {
       globals: {
