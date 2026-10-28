@@ -210,11 +210,19 @@ export class LedgerService {
             return created;
           });
         } catch (err: unknown) {
-          const isUniqueConstraintCollision =
-            (err as { code?: string })?.code === 'P2002' ||
-            ((err as Error)?.message && (err as Error).message.includes('Unique constraint failed'));
+          const prismaError = err as { code?: string; meta?: { target?: string[] | string } };
+          const isSeqCollision =
+            prismaError?.code === 'P2002' &&
+            (
+              (Array.isArray(prismaError.meta?.target) && prismaError.meta.target.includes('seq')) ||
+              (typeof prismaError.meta?.target === 'string' && prismaError.meta.target.includes('seq')) ||
+              Boolean((err as Error)?.message && (
+                (err as Error).message.includes('campaignId, seq') ||
+                (err as Error).message.includes('LedgerEntry_campaignId_seq_key')
+              ))
+            );
 
-          if (isUniqueConstraintCollision && attempt <= maxRetries) {
+          if (isSeqCollision && attempt <= maxRetries) {
             // Collision di level unique constraint DB @@unique([campaignId, seq])
             // Lakukan retry dengan exponential jittered backoff agar transaksi berikutnya membaca seq & prevHash terbaru
             const jitterMs = Math.floor(Math.random() * 15) + attempt * 5;
