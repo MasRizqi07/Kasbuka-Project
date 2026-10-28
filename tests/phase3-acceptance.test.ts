@@ -222,11 +222,44 @@ describe('Fase 3 Evidence Gate: Akseptansi US-1, US-3, US-4, dan US-7', () => {
       const validPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       expect(validateProofMagicBytes(validPng).isValid).toBe(true);
 
-      // File teks atau ekstensi palsu (.exe / .sh yang di-rename .jpg): 4D 5A ...
-      const fakeExe = Buffer.from([0x4d, 0x5a, 0x90, 0x00]);
-      const result = validateProofMagicBytes(fakeExe);
+      // WebP sah: RIFF (52 49 46 46) + WEBP (57 45 42 50)
+      const validWebP = Buffer.from([
+        0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+      ]);
+      expect(validateProofMagicBytes(validWebP).isValid).toBe(true);
+      expect(validateProofMagicBytes(validWebP).mimeType).toBe('image/webp');
+    });
+
+    it('menolak biner file executable Windows (.exe dengan header PE/MZ) yang dinamai berkas.jpg', () => {
+      // Header biner executable PE/DOS: MZ (4D 5A) + DOS stub
+      const dosStubText = 'This program cannot be run in DOS mode.';
+      const fakeExeBuffer = Buffer.concat([
+        Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff]),
+        Buffer.from(dosStubText, 'utf8'),
+      ]);
+
+      const result = validateProofMagicBytes(fakeExeBuffer);
       expect(result.isValid).toBe(false);
       expect(result.error).toContain('Format file tidak didukung');
+    });
+
+    it('menolak payload skrip teks HTML/SVG berbahaya (<script>alert(1)</script>) yang dinamai nota.png', () => {
+      const maliciousScript = Buffer.from('<script>alert("xss")</script><svg onload=alert(1)>', 'utf8');
+      const result = validateProofMagicBytes(maliciousScript);
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('Format file tidak didukung');
+    });
+
+    it('menolak file yang ukurannya melebihi batas 5 MB (5 * 1024 * 1024 + 1)', () => {
+      // Buffer JPEG valid tetapi melebihi 5MB
+      const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1);
+      oversizedBuffer[0] = 0xff;
+      oversizedBuffer[1] = 0xd8;
+      oversizedBuffer[2] = 0xff;
+
+      const result = validateProofMagicBytes(oversizedBuffer);
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('melebihi batas maksimum 5 MB');
     });
 
     it('pengurus dari organisasi lain ditolak HTTP 403 saat mencoba mencatat ke campaign ini', async () => {
