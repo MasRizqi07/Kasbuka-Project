@@ -33,6 +33,8 @@ vi.mock('@/lib/prisma', () => {
   const mockDb = {
     ledgerEntry: {
       findFirst: vi.fn(async ({ where, orderBy }: any) => {
+        // Simulasi network / query latency 2ms untuk memicu race window
+        await new Promise((res) => setTimeout(res, 2));
         const filtered = entries.filter((e) => e.campaignId === where.campaignId);
         if (orderBy?.seq === 'desc') {
           filtered.sort((a, b) => b.seq - a.seq);
@@ -208,5 +210,56 @@ describe('Fase 2 & 3 Concurrency Verification: Uji Penulisan Paralel ke Ledger',
     const integrity = await LedgerService.verifyCampaignLedger(campaignId);
     expect(integrity.isValid).toBe(true);
     expect(integrity.totalEntries).toBe(3); // 1 kas awal + 2 pengeluaran sah
+  });
+
+  it('varian tanpa mutex aplikasi (skipProcessMutex: true) mensimulasikan multi-pod serverless: P2002 collision di-retry otomatis dan rantai tetap 100% VALID', async () => {
+    const campaignId = 'camp-serverless-retry-test';
+    const PARALLEL_COUNT = 15;
+
+    // Luncurkan 15 penulisan paralel dengan skipProcessMutex = true
+    // Di sini mutex aplikasi MATI TOTAL. Tiap panggilan langsung menembus ke DB
+    // Karena query latency disimulasikan 2ms, beberapa request akan membaca seq yang sama,
+    // memicu collision P2002 pada create(), yang kemudian di-retry dengan backoff.
+    const promises = Array.from({ length: PARALLEL_COUNT }, (_, index) => {
+      return LedgerService.appendEntry({
+        campaignId,
+        type: 'IN',
+        source: 'MIDTRANS',
+        amount: BigInt(25000 + index * 500),
+        fee: 175n,
+        donorName: `Serverless Pod Donor #${index + 1}`,
+        description: `Simulasi pod paralel ${index + 1}`,
+        skipProcessMutex: true, // MUTEX APLIKASI DIMATIKAN
+        maxRetries: 10,
+      });
+    });
+
+    const results = await Promise.all(promises);
+
+    // 1. Seluruh 15 penulisan harus berhasil diselesaikan lewat retry loop
+    expect(results).toHaveLength(PARALLEL_COUNT);
+
+    // 2. Ambil seluruh entri dari DB
+    const savedEntries = (prisma as any)._getEntries().filter((e: any) => e.campaignId === campaignId);
+    expect(savedEntries).toHaveLength(PARALLEL_COUNT);
+
+    // 3. Pastikan seq 1..15 urut sempurna tanpa celah dan tanpa duplikat
+    const seqs = savedEntries.map((e: any) => e.seq).sort((a: number, b: number) => a - b);
+    const expectedSeqs = Array.from({ length: PARALLEL_COUNT }, (_, i) => i + 1);
+    expect(seqs).toEqual(expectedSeqs);
+
+    // 4. Verifikasi keutuhan hash chain: tidak boleh ada rantai bercabang
+    const sorted = [...savedEntries].sort((a: any, b: any) => a.seq - b.seq);
+    expect(sorted[0].prevHash).toBe(GENESIS_PREV_HASH);
+
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i].prevHash).toBe(sorted[i - 1].hash);
+    }
+
+    // 5. Verifikasi lewat verifyCampaignLedger
+    const verification = await LedgerService.verifyCampaignLedger(campaignId);
+    expect(verification.isValid).toBe(true);
+    expect(verification.totalEntries).toBe(PARALLEL_COUNT);
+    expect(verification.lastHash).toBe(sorted[PARALLEL_COUNT - 1].hash);
   });
 });

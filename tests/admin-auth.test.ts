@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { middleware } from '@/middleware';
+import { proxy } from '@/proxy';
 import { GET as getCampaigns, POST as postCampaigns } from '@/app/api/admin/campaigns/route';
 import { GET as getEntries } from '@/app/api/admin/entries/route';
 import { GET as getOrganization } from '@/app/api/admin/organization/route';
@@ -15,7 +15,7 @@ vi.mock('@/lib/auth', async () => {
 });
 
 describe('Fase 1 Evidence Gate: Proteksi Rute Admin Tanpa Sesi', () => {
-  describe('1. Uji Middleware Next.js Terpusat (matcher /api/admin/* dan /dashboard/*)', () => {
+  describe('1. Uji Proxy Next.js Terpusat (matcher /api/admin/* dan /dashboard/*)', () => {
     const adminRoutes = [
       '/api/admin/campaigns',
       '/api/admin/entries',
@@ -27,7 +27,7 @@ describe('Fase 1 Evidence Gate: Proteksi Rute Admin Tanpa Sesi', () => {
     adminRoutes.forEach((route) => {
       it(`seharusnya mengembalikan status 401 untuk rute ${route} tanpa cookie sesi`, () => {
         const req = new NextRequest(`http://localhost:3000${route}`);
-        const res = middleware(req);
+        const res = proxy(req);
 
         expect(res.status).toBe(401);
       });
@@ -35,7 +35,7 @@ describe('Fase 1 Evidence Gate: Proteksi Rute Admin Tanpa Sesi', () => {
 
     it('seharusnya me-redirect ke /login ketika pengguna tanpa sesi mengakses /dashboard', () => {
       const req = new NextRequest('http://localhost:3000/dashboard');
-      const res = middleware(req);
+      const res = proxy(req);
 
       expect(res.status).toBe(307);
       const location = res.headers.get('location');

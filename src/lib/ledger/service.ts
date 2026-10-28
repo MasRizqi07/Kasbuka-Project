@@ -23,6 +23,8 @@ export interface CreateEntryParams {
   proofSha256?: string | null;
   reversesEntryId?: string | null;
   createdById?: string | null;
+  skipProcessMutex?: boolean;
+  maxRetries?: number;
 }
 
 // Map antrean mutex per campaignId untuk mencegah race condition pada level proses
@@ -69,139 +71,167 @@ export class LedgerService {
    * Menambahkan entri baru ke ledger secara terurut, aman konkurensi, dan atomik
    */
   static async appendEntry(params: CreateEntryParams) {
-    return withCampaignLock(params.campaignId, async () => {
-      return prisma.$transaction(async (tx) => {
-        // Coba peroleh PostgreSQL advisory lock untuk koordinasi antar-pod / instance serverless
+    const execute = async () => {
+      const maxRetries = params.maxRetries ?? 5;
+      let attempt = 0;
+
+      while (true) {
+        attempt++;
         try {
-          if (typeof (tx as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === 'function') {
-            await (tx as { $executeRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown> }).$executeRawUnsafe(
-              `SELECT pg_advisory_xact_lock(hashtext($1))`,
-              params.campaignId
-            );
-          }
-        } catch {
-          // Fallback aman untuk mock prisma atau DB testing non-Postgres
-        }
+          return await prisma.$transaction(async (tx) => {
+            // Coba peroleh PostgreSQL advisory lock untuk koordinasi antar-pod / instance serverless
+            try {
+              if (typeof (tx as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === 'function') {
+                await (tx as { $executeRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown> }).$executeRawUnsafe(
+                  `SELECT pg_advisory_xact_lock(hashtext($1))`,
+                  params.campaignId
+                );
+              }
+            } catch {
+              // Fallback aman untuk mock prisma atau DB testing non-Postgres
+            }
 
-        // 1. Ambil entri terakhir dari campaign secara eksklusif dalam transaksi
-        const lastEntry = await tx.ledgerEntry.findFirst({
-          where: { campaignId: params.campaignId },
-          orderBy: { seq: 'desc' },
-        });
+            // 1. Ambil entri terakhir dari campaign secara eksklusif dalam transaksi
+            const lastEntry = await tx.ledgerEntry.findFirst({
+              where: { campaignId: params.campaignId },
+              orderBy: { seq: 'desc' },
+            });
 
-        const nextSeq = (lastEntry?.seq ?? 0) + 1;
-        const prevHash = lastEntry?.hash ?? GENESIS_PREV_HASH;
-        const occurredAt = params.occurredAt ?? new Date();
+            const nextSeq = (lastEntry?.seq ?? 0) + 1;
+            const prevHash = lastEntry?.hash ?? GENESIS_PREV_HASH;
+            const occurredAt = params.occurredAt ?? new Date();
 
-        // 2. Jika pengeluaran (OUT), validasi saldo dalam transaksi yang SAMA
-        if (params.type === 'OUT') {
-          const allEntries = await tx.ledgerEntry.findMany({
-            where: { campaignId: params.campaignId },
-          });
+            // 2. Jika pengeluaran (OUT), validasi saldo dalam transaksi yang SAMA
+            if (params.type === 'OUT') {
+              const allEntries = await tx.ledgerEntry.findMany({
+                where: { campaignId: params.campaignId },
+              });
 
-          const financial = calculateLedgerBalance(
-            allEntries.map((e) => ({
-              id: e.id,
-              seq: e.seq,
-              type: e.type,
-              amount: e.amount,
-              fee: e.fee,
-              reversesEntryId: e.reversesEntryId,
-            }))
-          );
+              const financial = calculateLedgerBalance(
+                allEntries.map((e) => ({
+                  id: e.id,
+                  seq: e.seq,
+                  type: e.type,
+                  amount: e.amount,
+                  fee: e.fee,
+                  reversesEntryId: e.reversesEntryId,
+                }))
+              );
 
-          if (params.amount > financial.saldo) {
-            throw new Error(
-              `Nominal pengeluaran (Rp ${params.amount}) melebihi saldo tersedia (Rp ${financial.saldo}).`
-            );
-          }
+              if (params.amount > financial.saldo) {
+                throw new Error(
+                  `Nominal pengeluaran (Rp ${params.amount}) melebihi saldo tersedia (Rp ${financial.saldo}).`
+                );
+              }
 
-          if (!params.proofUrl && !params.proofSha256) {
-            throw new Error('Bukti foto nota wajib dilampirkan untuk entri pengeluaran.');
-          }
-        }
+              if (!params.proofUrl && !params.proofSha256) {
+                throw new Error('Bukti foto nota wajib dilampirkan untuk entri pengeluaran.');
+              }
+            }
 
-        // 3. Jika REVERSAL, validasi entri target
-        if (params.type === 'REVERSAL') {
-          if (!params.reversesEntryId) {
-            throw new Error('reversesEntryId wajib diisi untuk entri tipe REVERSAL.');
-          }
+            // 3. Jika REVERSAL, validasi entri target
+            if (params.type === 'REVERSAL') {
+              if (!params.reversesEntryId) {
+                throw new Error('reversesEntryId wajib diisi untuk entri tipe REVERSAL.');
+              }
 
-          // Pastikan entri target ada di campaign ini
-          const targetEntry = await tx.ledgerEntry.findFirst({
-            where: {
-              id: params.reversesEntryId,
+              // Pastikan entri target ada di campaign ini
+              const targetEntry = await tx.ledgerEntry.findFirst({
+                where: {
+                  id: params.reversesEntryId,
+                  campaignId: params.campaignId,
+                },
+              });
+
+              if (!targetEntry) {
+                throw new Error(`Entri yang ingin dibatalkan (#${params.reversesEntryId}) tidak ditemukan.`);
+              }
+
+              // Pastikan belum pernah dibatalkan (US-5: tidak boleh dibatalkan dua kali)
+              const existingReversal = await tx.ledgerEntry.findFirst({
+                where: {
+                  campaignId: params.campaignId,
+                  reversesEntryId: params.reversesEntryId,
+                },
+              });
+
+              if (existingReversal) {
+                const err = new Error(
+                  `Entri #${targetEntry.seq} sudah dibatalkan sebelumnya oleh entri #${existingReversal.seq}.`
+                );
+                (err as unknown as { code: string }).code = 'REVERSAL_CONFLICT';
+                throw err;
+              }
+            }
+
+            // 4. Hitung SHA-256 hash rantai
+            const payload = {
               campaignId: params.campaignId,
-            },
-          });
+              seq: nextSeq,
+              type: params.type,
+              source: params.source,
+              amount: params.amount,
+              fee: params.fee ?? 0n,
+              occurredAt: occurredAt.toISOString(),
+              donorName: params.donorName ?? null,
+              isAnonymous: Boolean(params.isAnonymous),
+              message: params.message ?? null,
+              description: params.description ?? null,
+              proofUrl: params.proofUrl ?? null,
+              proofSha256: params.proofSha256 ?? null,
+              reversesEntryId: params.reversesEntryId ?? null,
+            };
 
-          if (!targetEntry) {
-            throw new Error(`Entri yang ingin dibatalkan (#${params.reversesEntryId}) tidak ditemukan.`);
+            const hash = computeEntryHash(prevHash, payload);
+
+            // 5. Simpan entri baru ke basis data
+            const created = await tx.ledgerEntry.create({
+              data: {
+                campaignId: params.campaignId,
+                seq: nextSeq,
+                type: params.type,
+                source: params.source,
+                amount: params.amount,
+                fee: params.fee ?? 0n,
+                occurredAt,
+                donorName: params.donorName ?? null,
+                isAnonymous: Boolean(params.isAnonymous),
+                message: params.message ?? null,
+                description: params.description ?? null,
+                proofUrl: params.proofUrl ?? null,
+                proofSha256: params.proofSha256 ?? null,
+                reversesEntryId: params.reversesEntryId ?? null,
+                createdById: params.createdById ?? null,
+                prevHash,
+                hash,
+              },
+            });
+
+            return created;
+          });
+        } catch (err: unknown) {
+          const isUniqueConstraintCollision =
+            (err as { code?: string })?.code === 'P2002' ||
+            ((err as Error)?.message && (err as Error).message.includes('Unique constraint failed'));
+
+          if (isUniqueConstraintCollision && attempt <= maxRetries) {
+            // Collision di level unique constraint DB @@unique([campaignId, seq])
+            // Lakukan retry dengan exponential jittered backoff agar transaksi berikutnya membaca seq & prevHash terbaru
+            const jitterMs = Math.floor(Math.random() * 15) + attempt * 5;
+            await new Promise((res) => setTimeout(res, jitterMs));
+            continue;
           }
 
-          // Pastikan belum pernah dibatalkan (US-5: tidak boleh dibatalkan dua kali)
-          const existingReversal = await tx.ledgerEntry.findFirst({
-            where: {
-              campaignId: params.campaignId,
-              reversesEntryId: params.reversesEntryId,
-            },
-          });
-
-          if (existingReversal) {
-            const err = new Error(
-              `Entri #${targetEntry.seq} sudah dibatalkan sebelumnya oleh entri #${existingReversal.seq}.`
-            );
-            (err as unknown as { code: string }).code = 'REVERSAL_CONFLICT';
-            throw err;
-          }
+          throw err;
         }
+      }
+    };
 
-        // 4. Hitung SHA-256 hash rantai
-        const payload = {
-          campaignId: params.campaignId,
-          seq: nextSeq,
-          type: params.type,
-          source: params.source,
-          amount: params.amount,
-          fee: params.fee ?? 0n,
-          occurredAt: occurredAt.toISOString(),
-          donorName: params.donorName ?? null,
-          isAnonymous: Boolean(params.isAnonymous),
-          message: params.message ?? null,
-          description: params.description ?? null,
-          proofUrl: params.proofUrl ?? null,
-          proofSha256: params.proofSha256 ?? null,
-          reversesEntryId: params.reversesEntryId ?? null,
-        };
+    if (params.skipProcessMutex) {
+      return execute();
+    }
 
-        const hash = computeEntryHash(prevHash, payload);
-
-        // 5. Simpan entri baru ke basis data
-        const created = await tx.ledgerEntry.create({
-          data: {
-            campaignId: params.campaignId,
-            seq: nextSeq,
-            type: params.type,
-            source: params.source,
-            amount: params.amount,
-            fee: params.fee ?? 0n,
-            occurredAt,
-            donorName: params.donorName ?? null,
-            isAnonymous: Boolean(params.isAnonymous),
-            message: params.message ?? null,
-            description: params.description ?? null,
-            proofUrl: params.proofUrl ?? null,
-            proofSha256: params.proofSha256 ?? null,
-            reversesEntryId: params.reversesEntryId ?? null,
-            createdById: params.createdById ?? null,
-            prevHash,
-            hash,
-          },
-        });
-
-        return created;
-      });
-    });
+    return withCampaignLock(params.campaignId, execute);
   }
 
   /**
