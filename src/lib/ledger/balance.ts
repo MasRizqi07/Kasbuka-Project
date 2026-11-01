@@ -14,6 +14,7 @@ export interface LedgerFinancialSummary {
   totalKeluar: bigint;
   saldo: bigint;
   reversedEntryIds: Set<string>;
+  reversedBySeq: Map<string, number>;
   runningBalances: Map<number, bigint>;
 }
 
@@ -21,6 +22,8 @@ export interface LedgerFinancialSummary {
  * Menghitung saldo dan ringkasan keuangan dari ledger Kasbuka:
  * Saldo = Σ(IN - fee) - Σ(OUT), dengan REVERSAL membalik efek entri yang dirujuk.
  * Saldo dihitung murni dari ledger (tidak disimpan sebagai kolom mutabel).
+ * Entri REVERSAL wajib bernilai amount positif dan efek pembalikannya diturunkan dari tipe entri target.
+ * Status pembatalan selalu diturunkan lewat query/kalkulasi dinamis, tidak pernah memutasi baris asli.
  */
 export function calculateLedgerBalance(entries: LedgerBalanceEntry[]): LedgerFinancialSummary {
   // 1. Urutkan entri kronologis berdasarkan nomor urut (seq 1, 2, 3...)
@@ -28,7 +31,7 @@ export function calculateLedgerBalance(entries: LedgerBalanceEntry[]): LedgerFin
 
   // 2. Identifikasi entri yang dibatalkan oleh REVERSAL
   const reversedEntryIds = new Set<string>();
-  const reversalMap = new Map<string, string>(); // targetId -> reversalId
+  const reversedBySeq = new Map<string, number>(); // targetId -> reversalSeq
 
   for (const entry of sortedEntries) {
     if (entry.type === 'REVERSAL' && entry.reversesEntryId) {
@@ -36,7 +39,7 @@ export function calculateLedgerBalance(entries: LedgerBalanceEntry[]): LedgerFin
         throw new Error(`Entri #${entry.reversesEntryId} sudah dibatalkan sebelumnya dan tidak dapat dibatalkan lagi.`);
       }
       reversedEntryIds.add(entry.reversesEntryId);
-      reversalMap.set(entry.reversesEntryId, entry.id);
+      reversedBySeq.set(entry.reversesEntryId, Number(entry.seq));
     }
   }
 
@@ -56,6 +59,10 @@ export function calculateLedgerBalance(entries: LedgerBalanceEntry[]): LedgerFin
     const amount = BigInt(entry.amount);
     const fee = BigInt(entry.fee ?? 0);
     const isReversed = reversedEntryIds.has(entry.id);
+
+    if (amount < 0n) {
+      throw new Error(`Nominal entri #${entry.seq} tidak boleh negatif.`);
+    }
 
     if (entry.type === 'IN') {
       const net = amount - fee;
@@ -96,6 +103,7 @@ export function calculateLedgerBalance(entries: LedgerBalanceEntry[]): LedgerFin
     totalKeluar,
     saldo,
     reversedEntryIds,
+    reversedBySeq,
     runningBalances,
   };
 }

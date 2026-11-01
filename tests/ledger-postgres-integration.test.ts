@@ -1,36 +1,69 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma as realPrisma } from '@/lib/prisma';
-import { LedgerService } from '@/lib/ledger/service';
-import { verifyLedgerIntegrity } from '@/lib/ledger/verifier';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { GENESIS_PREV_HASH } from '@/lib/ledger/hash';
 
-describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pada Database Nyata', () => {
+// 3.6: Menggunakan vi.hoisted agar testPrisma diinisialisasi sebelum vi.mock di-hoist
+const { testPrisma, testDbUrl } = vi.hoisted(() => {
+  const dbUrl = process.env.DATABASE_URL_TEST;
+  if (!dbUrl) {
+    throw new Error(
+      'FATAL: DATABASE_URL_TEST tidak ditemukan di konfigurasi environment. ' +
+      'Tes integrasi PostgreSQL wajib menunjuk ke kasbuka_test dan gagal keras tanpa skip.'
+    );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaClient } = require('@prisma/client');
+  return {
+    testDbUrl: dbUrl,
+    testPrisma: new PrismaClient({
+      datasources: {
+        db: {
+          url: dbUrl,
+        },
+      },
+    }),
+  };
+});
+
+// Pastikan LedgerService dan seluruh route mengarah secara eksklusif ke kasbuka_test
+vi.mock('@/lib/prisma', () => ({
+  prisma: testPrisma,
+}));
+
+import { LedgerService, isSeqCollisionError } from '@/lib/ledger/service';
+
+describe('Postgres Live Integration Test (kasbuka_test): Hardening Lapisan Database', () => {
   let testOrgId: string;
   let testCampaignId: string;
 
   beforeAll(async () => {
-    // Bersihkan data lama jika ada
-    await realPrisma.ledgerEntry.deleteMany({});
-    await realPrisma.donation.deleteMany({});
-    await realPrisma.campaign.deleteMany({});
-    await realPrisma.session.deleteMany({});
-    await realPrisma.user.deleteMany({});
-    await realPrisma.organization.deleteMany({});
+    // 3.6: Verifikasi koneksi ke PostgreSQL kasbuka_test (gagal keras jika database tidak terjangkau)
+    try {
+      await testPrisma.$executeRawUnsafe('SELECT 1');
+    } catch (err: unknown) {
+      throw new Error(
+        `FATAL: Gagal menghubungi database kasbuka_test pada ${testDbUrl}: ${(err as Error).message}`
+      );
+    }
 
-    // Buat data induk Organisasi dan Campaign langsung di database nyata
-    const org = await realPrisma.organization.create({
+    // Bersihkan data lama menggunakan TRUNCATE CASCADE (karena DELETE diblokir oleh trigger append-only)
+    await testPrisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "LedgerEntry", "Donation", "Campaign", "Session", "User", "Organization" CASCADE;'
+    );
+
+    // Buat data induk Organisasi dan Campaign langsung di kasbuka_test
+    const org = await testPrisma.organization.create({
       data: {
-        name: 'Takmir Al-Ikhlas Karangpoh',
+        name: 'Takmir Al-Ikhlas Karangpoh (Live Test)',
       },
     });
     testOrgId = org.id;
 
-    const campaign = await realPrisma.campaign.create({
+    const campaign = await testPrisma.campaign.create({
       data: {
         organizationId: testOrgId,
         slug: 'renovasi-atap-musala-live-test',
         title: 'Renovasi Atap Musala Al-Ikhlas (Live DB Test)',
-        story: 'Pengujian integritas ledger pada PostgreSQL asli.',
+        story: 'Pengujian konkurensi dan append-only pada PostgreSQL asli.',
         targetAmount: 50000000n,
         basis: 'TERBATAS',
         status: 'ACTIVE',
@@ -40,15 +73,12 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
   });
 
   afterAll(async () => {
-    await realPrisma.$disconnect();
+    await testPrisma.$disconnect();
   });
 
-  it('Uji 1: 20 penulisan paralel dengan mutex aplikasi MATI TOTAL (skipProcessMutex: true) pada PostgreSQL nyata', async () => {
+  it('Uji 1 (3.5): 20 penulisan paralel dengan lock aktif, mutex proses mati (skipProcessMutex: true) -> semua 20 sukses, seq 1..20 tanpa celah, VALID', async () => {
     const PARALLEL_COUNT = 20;
 
-    // Luncurkan 20 penulisan paralel secara serentak ke database PostgreSQL nyata
-    // Mutex aplikasi dimatikan total (skipProcessMutex: true) untuk memaksa transaksi
-    // bertarung di level PostgreSQL (advisory lock + unique index P2002 retry).
     const parallelTasks = Array.from({ length: PARALLEL_COUNT }, (_, index) => {
       return LedgerService.appendEntry({
         campaignId: testCampaignId,
@@ -56,9 +86,10 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
         source: 'MIDTRANS',
         amount: BigInt(50000 + (index + 1) * 2500),
         fee: 350n,
-        donorName: `Hamba Allah #${index + 1}`,
-        description: `Donasi live concurrent test #${index + 1}`,
-        skipProcessMutex: true, // MUTEX APLIKASI DIMATIKAN
+        donorName: `Donatur Paralel #${index + 1}`,
+        description: `Donasi lock aktif #${index + 1}`,
+        skipProcessMutex: true, // MUTEX PROSES MATI
+        skipAdvisoryLock: false, // ADVISORY LOCK POSTGRES AKTIF
         maxRetries: 10,
       });
     });
@@ -68,8 +99,8 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
     // 1. Seluruh 20 penulisan paralel harus berhasil
     expect(results).toHaveLength(PARALLEL_COUNT);
 
-    // 2. Query langsung ke PostgreSQL via RAW SQL
-    const rows = await realPrisma.$queryRaw<Array<{ seq: number; hash: string; prevHash: string; amount: bigint }>>`
+    // 2. Query langsung ke PostgreSQL kasbuka_test via RAW SQL
+    const rows = await testPrisma.$queryRaw<Array<{ seq: number; hash: string; prevHash: string; amount: bigint }>>`
       SELECT seq, hash, "prevHash", amount
       FROM "LedgerEntry"
       WHERE "campaignId" = ${testCampaignId}
@@ -79,7 +110,7 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
     expect(rows).toHaveLength(PARALLEL_COUNT);
 
     // 3. Pastikan seq tersusun sempurna 1..20 tanpa celah dan tanpa duplikat
-    const seqNumbers = rows.map((r) => r.seq);
+    const seqNumbers = rows.map((r: { seq: number }) => r.seq);
     const expectedSeqNumbers = Array.from({ length: PARALLEL_COUNT }, (_, i) => i + 1);
     expect(seqNumbers).toEqual(expectedSeqNumbers);
 
@@ -90,44 +121,165 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
     }
 
     // 5. Jalankan verifikator resmi integritas hash chain
-    const fullEntries = await realPrisma.ledgerEntry.findMany({
-      where: { campaignId: testCampaignId },
-      orderBy: { seq: 'asc' },
-    });
-
-    const verification = verifyLedgerIntegrity(
-      fullEntries.map((e) => ({
-        id: e.id,
-        campaignId: e.campaignId,
-        seq: e.seq,
-        type: e.type,
-        source: e.source,
-        amount: e.amount,
-        fee: e.fee,
-        occurredAt: e.occurredAt.toISOString(),
-        donorName: e.donorName,
-        isAnonymous: e.isAnonymous,
-        message: e.message,
-        description: e.description,
-        proofUrl: e.proofUrl,
-        proofSha256: e.proofSha256,
-        reversesEntryId: e.reversesEntryId,
-        prevHash: e.prevHash,
-        hash: e.hash,
-      }))
-    );
-
+    const verification = await LedgerService.verifyCampaignLedger(testCampaignId, testPrisma);
     expect(verification.isValid).toBe(true);
     expect(verification.totalEntries).toBe(PARALLEL_COUNT);
     expect(verification.lastHash).toBe(rows[PARALLEL_COUNT - 1].hash);
   });
 
-  it('Uji 2: Proteksi double-spend konkurensi pengeluaran (OUT) pada PostgreSQL nyata tanpa mutex aplikasi', async () => {
-    // 1. Buat campaign baru khusus untuk tes saldo
-    const expenseCamp = await realPrisma.campaign.create({
+  it('Uji 2 (3.5): 20 penulisan paralel dengan lock DAN mutex mati -> yang sukses membentuk rantai VALID tanpa celah seq, yang gagal error terdefinisi', async () => {
+    // Buat campaign baru terpisah untuk pengujian tanpa lock
+    const noLockCampaign = await testPrisma.campaign.create({
       data: {
         organizationId: testOrgId,
-        slug: 'uji-saldo-anti-double-spend',
+        slug: 'uji-nolock-konkurensi-' + Date.now(),
+        title: 'Uji Tanpa Lock Konkurensi',
+        story: 'Menguji unique index constraint saat lock dan mutex dimatikan.',
+        targetAmount: 20000000n,
+        basis: 'TERBATAS',
+        status: 'ACTIVE',
+      },
+    });
+
+    const PARALLEL_COUNT = 20;
+
+    // Mutex proses DAN advisory lock PostgreSQL dimatikan
+    const tasks = Array.from({ length: PARALLEL_COUNT }, (_, index) => {
+      return LedgerService.appendEntry({
+        campaignId: noLockCampaign.id,
+        type: 'IN',
+        source: 'MANUAL',
+        amount: BigInt(10000 * (index + 1)),
+        description: `Entri tanpa lock #${index + 1}`,
+        skipProcessMutex: true, // MUTEX PROSES MATI
+        skipAdvisoryLock: true,  // LOCK DATABASE MATI (Uji murni layer DB unique constraint & retry)
+        maxRetries: 3,
+      }).then(
+        (val) => ({ success: true, entry: val, error: null }),
+        (err: unknown) => ({ success: false, entry: null, error: err as Error })
+      );
+    });
+
+    const results = await Promise.all(tasks);
+
+    const successful = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
+
+    // Minimal harus ada entri yang berhasil masuk
+    expect(successful.length).toBeGreaterThan(0);
+
+    // Jika ada yang gagal setelah retry habis, errornya harus berupa error terdefinisi (P2002 collision), bukan crash misterius
+    for (const f of failed) {
+      expect(f.error).toBeDefined();
+      const isCollision = isSeqCollisionError(f.error) || f.error?.message.includes('Unique constraint');
+      expect(isCollision).toBe(true);
+    }
+
+    // Ambil semua entri yang berhasil tersimpan di database nyata
+    const savedRows = await testPrisma.$queryRaw<Array<{ seq: number; hash: string; prevHash: string }>>`
+      SELECT seq, "prevHash", hash
+      FROM "LedgerEntry"
+      WHERE "campaignId" = ${noLockCampaign.id}
+      ORDER BY seq ASC;
+    `;
+
+    expect(savedRows.length).toBe(successful.length);
+
+    // KETENTUAN 3.5: Yang sukses HARUS rantai VALID tanpa celah seq (1, 2, 3... N)
+    const seqs = savedRows.map((r: { seq: number }) => r.seq);
+    const expectedSeqs = Array.from({ length: savedRows.length }, (_, i) => i + 1);
+    expect(seqs).toEqual(expectedSeqs);
+
+    // Rantai hash pada database fisik harus utuh sempurna
+    expect(savedRows[0].prevHash).toBe(GENESIS_PREV_HASH);
+    for (let i = 1; i < savedRows.length; i++) {
+      expect(savedRows[i].prevHash).toBe(savedRows[i - 1].hash);
+    }
+
+    const verification = await LedgerService.verifyCampaignLedger(noLockCampaign.id, testPrisma);
+    expect(verification.isValid).toBe(true);
+    expect(verification.totalEntries).toBe(savedRows.length);
+  });
+
+  it('Uji 3 (3.5): Jalur retry hanya menangkap benturan (campaignId, seq) — P2002 pada Donation.orderId TIDAK di-retry', async () => {
+    const duplicateOrderId = 'KSB-ORDER-UNIQUE-TEST';
+
+    // Buat donasi pertama
+    await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId: duplicateOrderId,
+        amount: 50000n,
+        status: 'PENDING',
+      },
+    });
+
+    // Buat donasi kedua dengan orderId yang sama persis
+    let p2002Error: unknown = null;
+    try {
+      await testPrisma.donation.create({
+        data: {
+          campaignId: testCampaignId,
+          orderId: duplicateOrderId,
+          amount: 75000n,
+          status: 'PENDING',
+        },
+      });
+    } catch (err: unknown) {
+      p2002Error = err;
+    }
+
+    expect(p2002Error).toBeDefined();
+    // P2002 pada Donation.orderId HARUS ditolak oleh isSeqCollisionError (tidak boleh di-retry)
+    expect(isSeqCollisionError(p2002Error)).toBe(false);
+  });
+
+  it('Uji 4 (3.3): Trigger append-only di Postgres nyata — UPDATE & DELETE LedgerEntry ditolak, UPDATE Donation diizinkan', async () => {
+    // 1. UPDATE pada LedgerEntry wajib digagalkan oleh trigger database
+    let updateError: Error | null = null;
+    try {
+      await testPrisma.$executeRawUnsafe('UPDATE "LedgerEntry" SET amount = amount + 1 WHERE seq = 1;');
+    } catch (err: unknown) {
+      updateError = err as Error;
+    }
+
+    expect(updateError).toBeDefined();
+    expect(updateError?.message).toContain('LedgerEntry append-only');
+
+    // 2. DELETE pada LedgerEntry wajib digagalkan oleh trigger database
+    let deleteError: Error | null = null;
+    try {
+      await testPrisma.$executeRawUnsafe('DELETE FROM "LedgerEntry" WHERE seq = 1;');
+    } catch (err: unknown) {
+      deleteError = err as Error;
+    }
+
+    expect(deleteError).toBeDefined();
+    expect(deleteError?.message).toContain('LedgerEntry append-only');
+
+    // 3. Tabel Donation BOLEH di-update (status PENDING -> PAID)
+    const testDonation = await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId: 'KSB-DONATION-UPDATE-' + Date.now(),
+        amount: 25000n,
+        status: 'PENDING',
+      },
+    });
+
+    const updated = await testPrisma.donation.update({
+      where: { id: testDonation.id },
+      data: { status: 'PAID' },
+    });
+
+    expect(updated.status).toBe('PAID');
+  });
+
+  it('Uji 5: Proteksi saldo pengeluaran (OUT) ganda anti double-spend pada PostgreSQL nyata', async () => {
+    const expenseCamp = await testPrisma.campaign.create({
+      data: {
+        organizationId: testOrgId,
+        slug: 'uji-saldo-anti-double-spend-' + Date.now(),
         title: 'Uji Saldo Anti Double Spend',
         story: 'Menguji atomisitas validasi saldo pengeluaran.',
         targetAmount: 10000000n,
@@ -136,7 +288,7 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
       },
     });
 
-    // 2. Setor kas awal Rp 1.000.000
+    // 1. Setor kas awal Rp 1.000.000
     await LedgerService.appendEntry({
       campaignId: expenseCamp.id,
       type: 'IN',
@@ -146,9 +298,8 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
       skipProcessMutex: true,
     });
 
-    // 3. Luncurkan 5 permintaan pengeluaran serentak @ Rp 400.000 (total Rp 2.000.000)
-    // Mutex aplikasi DIMATIKAN TOTAL (skipProcessMutex: true)
-    // PostgreSQL advisory lock dan transaksi atomik harus memastikan hanya tepat 2 yang berhasil!
+    // 2. Luncurkan 5 permintaan pengeluaran serentak @ Rp 400.000 (total Rp 2.000.000)
+    // Hanya tepat 2 yang boleh berhasil (2 x 400.000 = 800.000 <= 1.000.000)
     const expenseTasks = Array.from({ length: 5 }, (_, i) => {
       return LedgerService.appendEntry({
         campaignId: expenseCamp.id,
@@ -158,7 +309,7 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
         description: `Pengeluaran live #${i + 1}`,
         proofUrl: `/uploads/proofs/nota-live-${i + 1}.jpg`,
         proofSha256: `sha256-live-proof-${i + 1}`,
-        skipProcessMutex: true, // MUTEX APLIKASI DIMATIKAN
+        skipProcessMutex: true,
       }).then(
         (val) => ({ success: true, val }),
         (err) => ({ success: false, error: err.message })
@@ -170,18 +321,14 @@ describe('Postgres Live Integration Test: Pembuktian Konkurensi & Rantai Hash pa
     const successful = expenseResults.filter((r) => r.success);
     const failed = expenseResults.filter((r) => !r.success);
 
-    // Tepat 2 pengeluaran berhasil (2 x 400.000 = 800.000 <= 1.000.000)
-    // 3 pengeluaran lainnya ditolak karena melebihi saldo tersedia
     expect(successful.length).toBe(2);
     expect(failed.length).toBe(3);
 
-    // Saldo akhir di PostgreSQL tepat Rp 200.000 (tidak pernah overdraft / negatif)
-    const balance = await LedgerService.getCampaignBalance(expenseCamp.id);
+    const balance = await LedgerService.getCampaignBalance(expenseCamp.id, testPrisma);
     expect(balance.saldo).toBe(200000n);
 
-    // Verifikasi keutuhan ledger pada campaign ini
-    const integrity = await LedgerService.verifyCampaignLedger(expenseCamp.id);
+    const integrity = await LedgerService.verifyCampaignLedger(expenseCamp.id, testPrisma);
     expect(integrity.isValid).toBe(true);
-    expect(integrity.totalEntries).toBe(3); // 1 kas awal + 2 pengeluaran sah
+    expect(integrity.totalEntries).toBe(3);
   });
 });

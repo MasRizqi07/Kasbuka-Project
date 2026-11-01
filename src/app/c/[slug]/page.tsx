@@ -6,6 +6,7 @@ import { getServerSession } from '@/lib/auth';
 import { calculateLedgerBalance } from '@/lib/ledger/balance';
 import { SaldoEquation } from '@/components/SaldoEquation';
 import { LedgerTable, type LedgerItem } from '@/components/LedgerTable';
+import { HashAnchor } from '@/components/HashAnchor';
 
 interface CampaignPageProps {
   params: Promise<{ slug: string }>;
@@ -81,6 +82,7 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
     proofUrl: e.proofUrl,
     proofSha256: e.proofSha256,
     isReversed: financial.reversedEntryIds.has(e.id),
+    reversedBySeq: financial.reversedBySeq.get(e.id) ?? null,
     reversesEntryId: e.reversesEntryId,
     hash: e.hash,
     prevHash: e.prevHash,
@@ -89,6 +91,17 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
   const permitDateFormatted = campaign.permitDate
     ? new Date(campaign.permitDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
+
+  // 3.9: Jangkar Hash & WhatsApp Share Text dengan potongan hash terakhir dan tanggalnya
+  const latestEntry = campaign.ledgerEntries[0];
+  const lastHash = latestEntry ? latestEntry.hash : '0'.repeat(64);
+  const lastHashSnippet = lastHash.substring(0, 12);
+  const lastEntryDate = latestEntry ? latestEntry.occurredAt.toISOString() : new Date().toISOString();
+  const lastDateFormatted = latestEntry
+    ? new Date(latestEntry.occurredAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const waShareText = `Buku kas terbuka: ${campaign.title} - https://kasbuka.org/c/${campaign.slug} (Hash terakhir: ${lastHashSnippet} per ${lastDateFormatted})`;
 
   return (
     <>
@@ -107,7 +120,7 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
           </Link>
 
           <div>
-            <Link href={`https://wa.me/?text=${encodeURIComponent(`Buku kas terbuka: ${campaign.title} - https://kasbuka.org/c/${campaign.slug}`)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-garis">
+            <Link href={`https://wa.me/?text=${encodeURIComponent(waShareText)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-garis">
               Bagikan
             </Link>
           </div>
@@ -123,7 +136,7 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
             ) : (
               <span className="status-pill pill-terbatas">Komunitas terbatas</span>
             )}
-            <span className="status-pill pill-pengurus">Diperbarui {new Date().getDate()} Okt</span>
+            <span className="status-pill pill-pengurus">Diperbarui {lastDateFormatted}</span>
           </div>
 
           <h1 style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.02em', color: 'var(--tinta)', marginBottom: '16px' }}>
@@ -164,6 +177,14 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
           saldo={financial.saldo}
           totalEntries={campaign.ledgerEntries.length}
           targetAmount={campaign.targetAmount}
+        />
+
+        {/* 3.9: Jangkar Hash & Verifikasi Integritas */}
+        <HashAnchor
+          slug={campaign.slug}
+          lastHash={lastHash}
+          lastEntryDate={lastEntryDate}
+          totalEntries={campaign.ledgerEntries.length}
         />
 
         {/* Cerita Campaign */}

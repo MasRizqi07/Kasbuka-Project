@@ -10,6 +10,29 @@ jobs:
   validate:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kasbuka_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/kasbuka
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5433/kasbuka_test
+      AUTH_SECRET: kasbuka_super_secret_auth_session_key_minimum_32_characters_long
+      MIDTRANS_SERVER_KEY: SB-Mid-server-test-placeholder
+      MIDTRANS_CLIENT_KEY: SB-Mid-client-test-placeholder
+      MIDTRANS_IS_PRODUCTION: 'false'
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,31 +42,31 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-          cache-dependency-path: '02-in-progress/Kasbuka-Project/package.json'
+          cache-dependency-path: 'package.json'
+
+      - name: Create Base Kasbuka Database
+        run: |
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -c "CREATE DATABASE kasbuka;" || true
 
       - name: Install Dependencies
-        working-directory: 02-in-progress/Kasbuka-Project
         run: npm ci
 
       - name: Generate Prisma Client
-        working-directory: 02-in-progress/Kasbuka-Project
         run: npx prisma generate
 
+      - name: Deploy Prisma Migrations
+        run: |
+          npx prisma migrate deploy
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5433/kasbuka_test npx prisma migrate deploy
+
       - name: Run ESLint
-        working-directory: 02-in-progress/Kasbuka-Project
         run: npm run lint
 
       - name: Run Typecheck
-        working-directory: 02-in-progress/Kasbuka-Project
         run: npm run typecheck
 
-      - name: Run Unit Tests (Vitest)
-        working-directory: 02-in-progress/Kasbuka-Project
+      - name: Run Unit & Postgres Integration Tests (Vitest)
         run: npm run test
 
       - name: Build Next.js
-        working-directory: 02-in-progress/Kasbuka-Project
         run: npm run build
-        env:
-          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/kasbuka'
-          AUTH_SECRET: 'test_secret_for_ci_pipeline_only_minimum_32_characters'

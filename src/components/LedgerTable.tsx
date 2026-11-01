@@ -18,6 +18,7 @@ export interface LedgerItem {
   proofUrl?: string | null;
   proofSha256?: string | null;
   isReversed?: boolean;
+  reversedBySeq?: number | null;
   reversesEntryId?: string | null;
   hash: string;
   prevHash: string;
@@ -148,7 +149,9 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {isReversed ? (
-                        <span className="status-pill pill-reversal">Dibatalkan</span>
+                        <span className="status-pill pill-reversal">
+                          {entry.reversedBySeq ? `Dibatalkan oleh #${entry.reversedBySeq}` : 'Dibatalkan'}
+                        </span>
                       ) : entry.source === 'MIDTRANS' ? (
                         <span className="status-pill pill-midtrans">Dibayar lewat Midtrans</span>
                       ) : (
