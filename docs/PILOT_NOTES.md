@@ -48,3 +48,4 @@ Berikut adalah daftar kendala yang dicatat selama pendampingan pilot dan mitigas
 - Database trigger append-only aktif (`tgenabled = 'O'`).
 - Rantai hash terbukti matematis konsisten dari entri awal hingga entri terkini.
 - Uji restore database cadangan (backup PITR) telah divalidasi 100% VALID.
+
