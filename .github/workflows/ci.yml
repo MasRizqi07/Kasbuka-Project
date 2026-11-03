@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: kasbuka_test
+          POSTGRES_DB: kasbuka
         ports:
           - 5433:5432
         options: >-
@@ -44,9 +44,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'package.json'
 
-      - name: Create Base Kasbuka Database
+      - name: Create Test Database
         run: |
-          docker exec ${{ job.services.postgres.id }} psql -U postgres -c "CREATE DATABASE kasbuka;" || true
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -c "CREATE DATABASE kasbuka_test;" || true
 
       - name: Install Dependencies
         run: npm ci

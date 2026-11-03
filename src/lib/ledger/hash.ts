@@ -12,6 +12,9 @@ export interface LedgerEntryPayload {
   source: LedgerEntrySource;
   amount: bigint | string | number;
   fee: bigint | string | number;
+  feeSource?: string | null;
+  paymentType?: string | null;
+  donationId?: string | null;
   occurredAt: string; // ISO 8601 string
   donorName?: string | null;
   isAnonymous: boolean;
@@ -25,17 +28,21 @@ export interface LedgerEntryPayload {
 /**
  * Menghasilkan representasi JSON kanonikal dengan kunci yang terurut secara deterministik.
  * Nilai BigInt diubah menjadi string desimal untuk konsistensi.
+ * Mencakup donationId, feeSource, dan paymentType (Fase 3.5b & Fase 4).
  */
 export function canonicalJsonStringify(payload: LedgerEntryPayload): string {
   const canonicalObj = {
     amount: payload.amount.toString(),
     campaignId: payload.campaignId,
     description: payload.description ?? null,
+    donationId: payload.donationId ?? null,
     donorName: payload.isAnonymous ? 'Anonim' : (payload.donorName ?? null),
     fee: (payload.fee ?? 0).toString(),
+    feeSource: payload.feeSource ?? null,
     isAnonymous: Boolean(payload.isAnonymous),
     message: payload.message ?? null,
     occurredAt: new Date(payload.occurredAt).toISOString(),
+    paymentType: payload.paymentType ?? null,
     proofSha256: payload.proofSha256 ?? null,
     proofUrl: payload.proofUrl ?? null,
     reversesEntryId: payload.reversesEntryId ?? null,

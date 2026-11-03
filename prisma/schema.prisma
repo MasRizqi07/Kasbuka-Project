@@ -98,11 +98,13 @@ model Donation {
   orderId       String         @unique
   amount        BigInt
   status        DonationStatus @default(PENDING)
+  paymentType   String?
+  paidAt        DateTime?
   snapToken     String?
   donorName     String?
   isAnonymous   Boolean        @default(false)
   message       String?
-  ledgerEntryId String?
+  ledgerEntry   LedgerEntry?
   createdAt     DateTime       @default(now())
 }
 
@@ -115,6 +117,10 @@ model LedgerEntry {
   source          EntrySource
   amount          BigInt
   fee             BigInt        @default(0)
+  feeSource       String?
+  paymentType     String?
+  donationId      String?       @unique
+  donation        Donation?     @relation(fields: [donationId], references: [id])
   occurredAt      DateTime      @default(now())
   donorName       String?
   isAnonymous     Boolean       @default(false)

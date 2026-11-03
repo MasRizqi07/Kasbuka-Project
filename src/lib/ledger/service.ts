@@ -15,6 +15,9 @@ export interface CreateEntryParams {
   source: LedgerEntrySource;
   amount: bigint;
   fee?: bigint;
+  feeSource?: string | null;
+  paymentType?: string | null;
+  donationId?: string | null;
   occurredAt?: Date;
   donorName?: string | null;
   isAnonymous?: boolean;
@@ -90,13 +93,30 @@ export function isSeqCollisionError(err: unknown): boolean {
   return false;
 }
 
-function isTransactionClient(client: unknown): client is Prisma.TransactionClient {
-  return Boolean(
-    client &&
-    typeof client === 'object' &&
-    'ledgerEntry' in client &&
-    !('campaignId' in client)
-  );
+/**
+ * Helper retry untuk pemanggil transaksi (Fase 3.5b & Fase 4 webhook).
+ * Menjalankan fungsi transaksi dan mengulang HANYA jika terjadi benturan sequence (campaignId, seq).
+ */
+export async function withSeqRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 5
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      if (isSeqCollisionError(err) && attempt <= maxRetries) {
+        // Collision di level unique constraint DB @@unique([campaignId, seq])
+        // Exponential jittered backoff agar transaksi berikutnya membaca seq & prevHash terbaru
+        const jitterMs = Math.floor(Math.random() * 15) + attempt * 5;
+        await new Promise((res) => setTimeout(res, jitterMs));
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 /**
@@ -105,18 +125,42 @@ function isTransactionClient(client: unknown): client is Prisma.TransactionClien
 async function appendEntryCore(
   tx: Prisma.TransactionClient,
   params: CreateEntryParams
-) {
-  // 3.1 & 3.5: Lock PostgreSQL advisory lock. Gagal keras jika lock gagal atau error (tanpa try/catch penelan error).
+): Promise<LedgerEntry> {
+  // 3.1 & 3.5: Lock PostgreSQL advisory lock. Gagal keras jika lock gagal atau error.
   if (params.skipAdvisoryLock) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('skipAdvisoryLock tidak boleh aktif di production.');
     }
   } else {
-    if (typeof (tx as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === 'function') {
+    if (typeof (tx as { $executeRawUnsafe?: unknown }).$executeRawUnsafe !== 'function') {
+      if (process.env.NODE_ENV !== 'test') {
+        throw new Error('tx.$executeRawUnsafe tidak tersedia di luar lingkungan test.');
+      }
+    } else {
       await (tx as { $executeRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown> }).$executeRawUnsafe(
         `SELECT pg_advisory_xact_lock(hashtext($1))`,
         params.campaignId
       );
+    }
+  }
+
+  // Validasi B.1: amount harus > 0n
+  if (params.amount <= 0n) {
+    throw new Error('Nominal entri ledger harus lebih besar dari 0.');
+  }
+
+  // Validasi B.2: fee harus >= 0n, <= amount untuk IN, dan 0n untuk OUT dan REVERSAL
+  const fee = params.fee ?? 0n;
+  if (fee < 0n) {
+    throw new Error('Fee tidak boleh negatif.');
+  }
+  if (params.type === 'IN') {
+    if (fee > params.amount) {
+      throw new Error('Fee tidak boleh melebihi nominal pemasukan (amount).');
+    }
+  } else {
+    if (fee !== 0n) {
+      throw new Error(`Fee untuk entri ${params.type} harus 0n.`);
     }
   }
 
@@ -129,11 +173,6 @@ async function appendEntryCore(
   const nextSeq = (lastEntry?.seq ?? 0) + 1;
   const prevHash = lastEntry?.hash ?? GENESIS_PREV_HASH;
   const occurredAt = params.occurredAt ?? new Date();
-
-  // Validasi nominal tidak boleh negatif
-  if (params.amount < 0n) {
-    throw new Error('Nominal entri ledger tidak boleh negatif.');
-  }
 
   // 2. Jika pengeluaran (OUT), validasi saldo dalam transaksi yang SAMA
   if (params.type === 'OUT') {
@@ -163,7 +202,7 @@ async function appendEntryCore(
     }
   }
 
-  // 3. Jika REVERSAL, validasi entri target
+  // 3. Jika REVERSAL, validasi entri target (Validasi B.3)
   if (params.type === 'REVERSAL') {
     if (!params.reversesEntryId) {
       throw new Error('reversesEntryId wajib diisi untuk entri tipe REVERSAL.');
@@ -179,6 +218,18 @@ async function appendEntryCore(
 
     if (!targetEntry) {
       throw new Error(`Entri yang ingin dibatalkan (#${params.reversesEntryId}) tidak ditemukan.`);
+    }
+
+    // Target reversal harus bertipe IN atau OUT (reversal atas reversal dilarang)
+    if (targetEntry.type !== 'IN' && targetEntry.type !== 'OUT') {
+      throw new Error(`Entri target reversal harus bertipe IN atau OUT (ditemukan: ${targetEntry.type}).`);
+    }
+
+    // Nominal reversal harus sama persis dengan nominal entri target
+    if (params.amount !== targetEntry.amount) {
+      throw new Error(
+        `Nominal reversal (Rp ${params.amount}) harus sama persis dengan nominal entri target (Rp ${targetEntry.amount}).`
+      );
     }
 
     // Pastikan belum pernah dibatalkan (US-5: tidak boleh dibatalkan dua kali)
@@ -198,14 +249,17 @@ async function appendEntryCore(
     }
   }
 
-  // 4. Hitung SHA-256 hash rantai
+  // 4. Hitung SHA-256 hash rantai (mencakup donationId, paymentType, feeSource - Bagian D)
   const payload = {
     campaignId: params.campaignId,
     seq: nextSeq,
     type: params.type,
     source: params.source,
     amount: params.amount,
-    fee: params.fee ?? 0n,
+    fee,
+    feeSource: params.feeSource ?? null,
+    paymentType: params.paymentType ?? null,
+    donationId: params.donationId ?? null,
     occurredAt: occurredAt.toISOString(),
     donorName: params.donorName ?? null,
     isAnonymous: Boolean(params.isAnonymous),
@@ -226,7 +280,10 @@ async function appendEntryCore(
       type: params.type,
       source: params.source,
       amount: params.amount,
-      fee: params.fee ?? 0n,
+      fee,
+      feeSource: params.feeSource ?? null,
+      paymentType: params.paymentType ?? null,
+      donationId: params.donationId ?? null,
       occurredAt,
       donorName: params.donorName ?? null,
       isAnonymous: Boolean(params.isAnonymous),
@@ -256,61 +313,28 @@ async function appendEntryCore(
 export class LedgerService {
   /**
    * Menambahkan entri baru ke ledger secara terurut, aman konkurensi, dan atomik.
-   * Mendukung injeksi transaksi tx eksternal (3.2).
+   * Signature tunggal: appendEntry(params, tx?)
    */
   static async appendEntry(
     params: CreateEntryParams,
     tx?: Prisma.TransactionClient
-  ): Promise<LedgerEntry>;
-  static async appendEntry(
-    tx: Prisma.TransactionClient,
-    params: CreateEntryParams
-  ): Promise<LedgerEntry>;
-  static async appendEntry(
-    arg1: CreateEntryParams | Prisma.TransactionClient,
-    arg2?: Prisma.TransactionClient | CreateEntryParams
   ): Promise<LedgerEntry> {
-    let params: CreateEntryParams;
-    let externalTx: Prisma.TransactionClient | undefined;
-
-    if (isTransactionClient(arg1)) {
-      externalTx = arg1;
-      params = arg2 as CreateEntryParams;
-    } else {
-      params = arg1 as CreateEntryParams;
-      externalTx = arg2 as Prisma.TransactionClient | undefined;
-    }
-
-    // 3.2: Kalau tx diberikan dari luar, pakai itu dan jangan buka $transaction baru.
-    // Retry loop untuk benturan seq dilakukan oleh pemanggil di luar, bukan di dalam appendEntry.
-    if (externalTx) {
-      return await appendEntryCore(externalTx, params);
-    }
-
-    // Kalau tx tidak diberikan, buka sendiri $transaction dengan retry loop membungkus transaksi terluar.
-    const execute = async () => {
-      const maxRetries = params.maxRetries ?? 5;
-      let attempt = 0;
-
-      while (true) {
-        attempt++;
-        try {
-          return await prisma.$transaction(async (tx) => {
-            return await appendEntryCore(tx, params);
-          });
-        } catch (err: unknown) {
-          if (isSeqCollisionError(err) && attempt <= maxRetries) {
-            // Collision di level unique constraint DB @@unique([campaignId, seq])
-            // Lakukan retry dengan exponential jittered backoff agar transaksi berikutnya membaca seq & prevHash terbaru
-            const jitterMs = Math.floor(Math.random() * 15) + attempt * 5;
-            await new Promise((res) => setTimeout(res, jitterMs));
-            continue;
-          }
-
-          throw err;
-        }
+    // Guard A: Jika tx diberikan, pastikan BUKAN klien Prisma global ($transaction terdeteksi)
+    if (tx) {
+      if (typeof (tx as { $transaction?: unknown }).$transaction === 'function') {
+        throw new Error(
+          'Parameter tx tidak boleh berupa klien Prisma global ($transaction terdeteksi). Wajib berupa Prisma.TransactionClient.'
+        );
       }
-    };
+      return await appendEntryCore(tx, params);
+    }
+
+    // Kalau tx tidak diberikan, jalankan dalam prisma.$transaction dengan helper withSeqRetry
+    const execute = () =>
+      withSeqRetry(
+        () => prisma.$transaction((t) => appendEntryCore(t, params)),
+        params.maxRetries ?? 5
+      );
 
     if (params.skipProcessMutex) {
       return execute();
@@ -364,6 +388,9 @@ export class LedgerService {
         source: e.source,
         amount: e.amount,
         fee: e.fee,
+        feeSource: (e as { feeSource?: string | null }).feeSource ?? null,
+        paymentType: (e as { paymentType?: string | null }).paymentType ?? null,
+        donationId: (e as { donationId?: string | null }).donationId ?? null,
         occurredAt: e.occurredAt.toISOString(),
         donorName: e.donorName,
         isAnonymous: e.isAnonymous,

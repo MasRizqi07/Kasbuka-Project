@@ -29,7 +29,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: testPrisma,
 }));
 
-import { LedgerService, isSeqCollisionError } from '@/lib/ledger/service';
+import { LedgerService, isSeqCollisionError, withSeqRetry } from '@/lib/ledger/service';
 
 describe('Postgres Live Integration Test (kasbuka_test): Hardening Lapisan Database', () => {
   let testOrgId: string;
@@ -44,6 +44,11 @@ describe('Postgres Live Integration Test (kasbuka_test): Hardening Lapisan Datab
         `FATAL: Gagal menghubungi database kasbuka_test pada ${testDbUrl}: ${(err as Error).message}`
       );
     }
+
+    // Pastikan trigger aktif
+    await testPrisma.$executeRawUnsafe(
+      'ALTER TABLE "LedgerEntry" ENABLE TRIGGER trg_ledger_entry_append_only;'
+    );
 
     // Bersihkan data lama menggunakan TRUNCATE CASCADE (karena DELETE diblokir oleh trigger append-only)
     await testPrisma.$executeRawUnsafe(
@@ -73,6 +78,14 @@ describe('Postgres Live Integration Test (kasbuka_test): Hardening Lapisan Datab
   });
 
   afterAll(async () => {
+    // Pastikan trigger selalu aktif setelah seluruh tes selesai
+    try {
+      await testPrisma.$executeRawUnsafe(
+        'ALTER TABLE "LedgerEntry" ENABLE TRIGGER trg_ledger_entry_append_only;'
+      );
+    } catch {
+      // Ignored
+    }
     await testPrisma.$disconnect();
   });
 
@@ -330,5 +343,229 @@ describe('Postgres Live Integration Test (kasbuka_test): Hardening Lapisan Datab
     const integrity = await LedgerService.verifyCampaignLedger(expenseCamp.id, testPrisma);
     expect(integrity.isValid).toBe(true);
     expect(integrity.totalEntries).toBe(3);
+  });
+
+  it('Uji 6 (3.5b A.1): Menolak pemanggilan appendEntry jika tx berupa klien Prisma global ($transaction terdeteksi)', async () => {
+    await expect(
+      LedgerService.appendEntry(
+        {
+          campaignId: testCampaignId,
+          type: 'IN',
+          source: 'MANUAL',
+          amount: 10000n,
+        },
+        testPrisma as any // Klien global Prisma
+      )
+    ).rejects.toThrow('Parameter tx tidak boleh berupa klien Prisma global');
+  });
+
+  it('Uji 7 (3.5b A.2): Menolak skipAdvisoryLock jika NODE_ENV bernilai production', async () => {
+    try {
+      vi.stubEnv('NODE_ENV', 'production');
+      await expect(
+        LedgerService.appendEntry({
+          campaignId: testCampaignId,
+          type: 'IN',
+          source: 'MANUAL',
+          amount: 10000n,
+          skipAdvisoryLock: true,
+        })
+      ).rejects.toThrow('skipAdvisoryLock tidak boleh aktif di production.');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('Uji 8 (3.5b B.1): Validasi nominal — amount = 0n atau negatif ditolak', async () => {
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 0n,
+      })
+    ).rejects.toThrow('Nominal entri ledger harus lebih besar dari 0.');
+
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'IN',
+        source: 'MANUAL',
+        amount: -5000n,
+      })
+    ).rejects.toThrow('Nominal entri ledger harus lebih besar dari 0.');
+  });
+
+  it('Uji 9 (3.5b B.2): Validasi fee — negatif ditolak, fee > amount pada IN ditolak, fee > 0n pada OUT/REVERSAL ditolak', async () => {
+    // 1. Fee negatif ditolak
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 10000n,
+        fee: -50n,
+      })
+    ).rejects.toThrow('Fee tidak boleh negatif.');
+
+    // 2. Fee > amount pada IN ditolak
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'IN',
+        source: 'MANUAL',
+        amount: 10000n,
+        fee: 15000n,
+      })
+    ).rejects.toThrow('Fee tidak boleh melebihi nominal pemasukan (amount).');
+
+    // 3. Fee > 0n pada OUT ditolak
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'OUT',
+        source: 'MANUAL',
+        amount: 10000n,
+        fee: 200n,
+        proofUrl: '/uploads/proofs/test.jpg',
+        proofSha256: 'sha256-dummy',
+      })
+    ).rejects.toThrow('Fee untuk entri OUT harus 0n.');
+  });
+
+  it('Uji 10 (3.5b B.3): Validasi reversal — target bertipe REVERSAL ditolak, dan nominal reversal tidak sama dengan nominal target ditolak', async () => {
+    // 1. Buat entri IN valid
+    const targetIn = await LedgerService.appendEntry({
+      campaignId: testCampaignId,
+      type: 'IN',
+      source: 'MANUAL',
+      amount: 60000n,
+      description: 'Entri target uji reversal B.3',
+    });
+
+    // 2. Reversal dengan nominal berbeda dari target ditolak
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'REVERSAL',
+        source: 'MANUAL',
+        amount: 55000n, // Nominal tidak cocok dengan 60000n
+        reversesEntryId: targetIn.id,
+        description: 'Mencoba reversal dengan nominal beda',
+      })
+    ).rejects.toThrow('Nominal reversal (Rp 55000) harus sama persis dengan nominal entri target (Rp 60000).');
+
+    // 3. Reversal yang benar (nominal sama persis) berhasil
+    const validRev = await LedgerService.appendEntry({
+      campaignId: testCampaignId,
+      type: 'REVERSAL',
+      source: 'MANUAL',
+      amount: 60000n,
+      reversesEntryId: targetIn.id,
+      description: 'Reversal sah atas targetIn',
+    });
+
+    // 4. Reversal atas entri yang bertipe REVERSAL ditolak keras
+    await expect(
+      LedgerService.appendEntry({
+        campaignId: testCampaignId,
+        type: 'REVERSAL',
+        source: 'MANUAL',
+        amount: 60000n,
+        reversesEntryId: validRev.id,
+        description: 'Reversal atas reversal (dilarang)',
+      })
+    ).rejects.toThrow('Entri target reversal harus bertipe IN atau OUT (ditemukan: REVERSAL).');
+  });
+
+  it('Uji 11 (3.5b C.1): Helper withSeqRetry mengulang saat P2002 sequence collision dan TIDAK mengulang pada P2002 Donation.orderId', async () => {
+    let seqAttempts = 0;
+    const retryResult = await withSeqRetry(async () => {
+      seqAttempts++;
+      if (seqAttempts === 1) {
+        const err = new Error('Unique constraint failed on the fields: (`campaignId`,`seq`)');
+        (err as unknown as { code: string; meta: unknown }).code = 'P2002';
+        (err as unknown as { meta: unknown }).meta = { modelName: 'LedgerEntry', target: ['campaignId', 'seq'] };
+        throw err;
+      }
+      return 'RETRY_SUCCEEDED';
+    });
+
+    expect(retryResult).toBe('RETRY_SUCCEEDED');
+    expect(seqAttempts).toBe(2);
+
+    let donationAttempts = 0;
+    await expect(
+      withSeqRetry(async () => {
+        donationAttempts++;
+        const err = new Error('Unique constraint failed on the fields: (`orderId`)');
+        (err as unknown as { code: string; meta: unknown }).code = 'P2002';
+        (err as unknown as { meta: unknown }).meta = { modelName: 'Donation', target: ['orderId'] };
+        throw err;
+      })
+    ).rejects.toThrow('orderId');
+
+    expect(donationAttempts).toBe(1); // Gagal keras tanpa retry
+  });
+
+  it('Uji 12 (3.5b D.1): Kolom donationId, paymentType, feeSource tersimpan & modifikasi langsung pada donationId membuat verifikasi integritas RUSAK', async () => {
+    // 1. Buat donasi baru di kasbuka_test
+    const don = await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId: 'KSB-PAYLOAD-HASH-' + Date.now(),
+        amount: 15000n,
+        status: 'PAID',
+        paymentType: 'qris',
+      },
+    });
+
+    // 2. Catat entri ledger dengan donationId, paymentType, feeSource
+    const entry = await LedgerService.appendEntry({
+      campaignId: testCampaignId,
+      type: 'IN',
+      source: 'MIDTRANS',
+      amount: 15000n,
+      fee: 105n,
+      feeSource: 'ESTIMATED',
+      paymentType: 'qris',
+      donationId: don.id,
+      donorName: 'Donatur QRIS Berlabel',
+      description: 'Donasi Midtrans dengan feeSource ESTIMATED',
+    });
+
+    expect(entry.donationId).toBe(don.id);
+    expect(entry.paymentType).toBe('qris');
+    expect(entry.feeSource).toBe('ESTIMATED');
+
+    // 3. Verifikasi awal harus VALID
+    let check = await LedgerService.verifyCampaignLedger(testCampaignId, testPrisma);
+    expect(check.isValid).toBe(true);
+
+    // 4. Tamper test: Buat donasi kedua yang valid, lalu ubah donationId ke donasi kedua langsung di DB
+    const donTamper = await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId: 'KSB-TAMPER-TARGET-' + Date.now(),
+        amount: 25000n,
+        status: 'PAID',
+      },
+    });
+
+    try {
+      await testPrisma.$executeRawUnsafe('ALTER TABLE "LedgerEntry" DISABLE TRIGGER trg_ledger_entry_append_only;');
+      await testPrisma.$executeRawUnsafe(
+        'UPDATE "LedgerEntry" SET "donationId" = $1 WHERE id = $2;',
+        donTamper.id,
+        entry.id
+      );
+    } finally {
+      await testPrisma.$executeRawUnsafe('ALTER TABLE "LedgerEntry" ENABLE TRIGGER trg_ledger_entry_append_only;');
+    }
+
+    // 5. Verifikasi ulang HARUS mendeteksi manipulasi data fisik dan melaporkan RUSAK
+    check = await LedgerService.verifyCampaignLedger(testCampaignId, testPrisma);
+    expect(check.isValid).toBe(false);
+    expect(check.corruptEntrySeq).toBe(entry.seq);
   });
 });
