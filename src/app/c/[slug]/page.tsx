@@ -7,6 +7,7 @@ import { calculateLedgerBalance } from '@/lib/ledger/balance';
 import { SaldoEquation } from '@/components/SaldoEquation';
 import { LedgerTable, type LedgerItem } from '@/components/LedgerTable';
 import { HashAnchor } from '@/components/HashAnchor';
+import { DonationSheet } from '@/components/DonationSheet';
 
 interface CampaignPageProps {
   params: Promise<{ slug: string }>;
@@ -102,6 +103,7 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
     : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const waShareText = `Buku kas terbuka: ${campaign.title} - https://kasbuka.org/c/${campaign.slug} (Hash terakhir: ${lastHashSnippet} per ${lastDateFormatted})`;
+  const donationsEnabled = process.env.DONATIONS_ENABLED !== 'false';
 
   return (
     <>
@@ -177,6 +179,14 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
           saldo={financial.saldo}
           totalEntries={campaign.ledgerEntries.length}
           targetAmount={campaign.targetAmount}
+        />
+
+        {/* US-2: Sheet Donasi Midtrans Snap Sandbox (Fase 4) */}
+        <DonationSheet
+          slug={campaign.slug}
+          campaignTitle={campaign.title}
+          campaignStatus={campaign.status}
+          donationsEnabled={donationsEnabled}
         />
 
         {/* 3.9: Jangkar Hash & Verifikasi Integritas */}

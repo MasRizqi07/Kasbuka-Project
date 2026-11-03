@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 
 export interface VerifyMidtransSignatureParams {
   orderId: string;
@@ -24,7 +24,7 @@ export function computeMidtransSignature(
 
 /**
  * Memverifikasi keabsahan signature webhook notifikasi dari Midtrans.
- * Fungsi murni (pure function), bebas efek samping, aman konkurensi.
+ * Menggunakan crypto.timingSafeEqual pada Buffer setelah memastikan panjang sama (PRD 4.3).
  * Mengembalikan boolean true jika sah, false jika dipalsukan/rusak.
  */
 export function verifyMidtransSignature({
@@ -40,15 +40,12 @@ export function verifyMidtransSignature({
 
   const expectedSignature = computeMidtransSignature(orderId, statusCode, grossAmount, serverKey);
 
-  // Perbandingan string waktu konstan untuk mencegah timing attack
-  if (expectedSignature.length !== incomingSignature.length) {
+  const expectedBuf = Buffer.from(expectedSignature, 'utf-8');
+  const incomingBuf = Buffer.from(incomingSignature, 'utf-8');
+
+  if (expectedBuf.length !== incomingBuf.length) {
     return false;
   }
 
-  let mismatch = 0;
-  for (let i = 0; i < expectedSignature.length; i++) {
-    mismatch |= expectedSignature.charCodeAt(i) ^ incomingSignature.charCodeAt(i);
-  }
-
-  return mismatch === 0;
+  return timingSafeEqual(expectedBuf, incomingBuf);
 }

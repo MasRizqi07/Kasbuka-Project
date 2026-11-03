@@ -13,6 +13,7 @@ export default defineConfig({
     include: ['tests/**/*.{test,spec}.{ts,tsx}', 'src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules/**'],
     globals: true,
+    fileParallelism: false,
   },
   resolve: {
     alias: {

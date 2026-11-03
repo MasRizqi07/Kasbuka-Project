@@ -1,12 +1,28 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLedgerIntegrity } from '@/lib/ledger/verifier';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function GET(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
   try {
+    // Rate Limiter per IP (PRD 4.6: maks 20 verifikasi per menit)
+    const clientIp = getClientIp(req);
+    const rateLimit = await checkRateLimit({
+      key: `integrity:${clientIp}`,
+      limit: 20,
+      windowMs: 60 * 1000,
+    });
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: 'Terlalu banyak permintaan verifikasi integritas. Silakan coba sesaat lagi.' },
+        { status: 429 }
+      );
+    }
+
     const { slug } = await context.params;
 
     const campaign = await prisma.campaign.findUnique({

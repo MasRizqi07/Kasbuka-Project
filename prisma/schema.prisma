@@ -140,3 +140,18 @@ model LedgerEntry {
   @@unique([campaignId, seq])
   @@unique([campaignId, reversesEntryId])
 }
+
+model WebhookEvent {
+  id                String   @id @default(cuid())
+  orderId           String
+  transactionStatus String
+  signatureValid    Boolean
+  result            String   // PROCESSED | DUPLICATE | IGNORED | REJECTED
+  receivedAt        DateTime @default(now())
+}
+
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
+}

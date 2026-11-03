@@ -2,11 +2,12 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline' https://app.sandbox.midtrans.com${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' data: blob: https:;
   font-src 'self' data: https://fonts.gstatic.com;
   connect-src 'self' https://app.sandbox.midtrans.com;
+  frame-src 'self' https://app.sandbox.midtrans.com;
   frame-ancestors 'none';
   object-src 'none';
   base-uri 'self';

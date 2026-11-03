@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth-guard';
 import { validateProofMagicBytes, saveProofFileLocally } from '@/lib/storage/proof';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const POST = withAdminAuth(async (req) => {
   try {
+    // Rate Limiter per IP (PRD 4.6: maks 10 upload bukti per menit)
+    const clientIp = getClientIp(req);
+    const rateLimit = await checkRateLimit({
+      key: `upload:${clientIp}`,
+      limit: 10,
+      windowMs: 60 * 1000,
+    });
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: 'Terlalu banyak permintaan unggah bukti. Silakan coba sesaat lagi.' },
+        { status: 429 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
