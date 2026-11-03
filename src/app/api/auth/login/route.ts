@@ -12,11 +12,11 @@ const LoginSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  // 1. Rate Limiter per IP (PRD 4.6: maks 5 percobaan login per menit)
+  // 1. Rate Limiter per IP (PRD 4.6: maks 10 percobaan login per menit)
   const clientIp = getClientIp(request);
   const rateLimit = await checkRateLimit({
     key: `login:${clientIp}`,
-    limit: 5,
+    limit: 10,
     windowMs: 60 * 1000,
   });
 

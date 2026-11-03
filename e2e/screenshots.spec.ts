@@ -51,46 +51,34 @@ test.beforeAll(async () => {
   });
 });
 
-test('Capture Screenshots S1 sampai S4 (Desktop & 390px)', async ({ browser }) => {
-  const viewports = [
-    { name: 'desktop', width: 1280, height: 800 },
-    { name: '390px', width: 390, height: 844 },
-  ];
+test('Capture Screenshots S1 sampai S4', async ({ page }, testInfo) => {
+  const vpName = testInfo.project.name === 'mobile-chrome' ? '390px' : 'desktop';
 
-  for (const vp of viewports) {
-    const context = await browser.newContext({
-      viewport: { width: vp.width, height: vp.height },
-    });
-    const page = await context.newPage();
+  // S1: Landing Pengurus (/)
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: `screenshots/S1-landing-${vpName}.png` });
 
-    // S1: Landing Pengurus (/)
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.screenshot({ path: `screenshots/S1-landing-${vp.name}.png` });
+  // S2: Halaman Publik Campaign (/c/[slug])
+  await page.goto(`/c/${SLUG}`);
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: `screenshots/S2-campaign-${vpName}.png` });
 
-    // S2: Halaman Publik Campaign (/c/[slug])
-    await page.goto(`/c/${SLUG}`);
-    await page.waitForLoadState('networkidle');
-    await page.screenshot({ path: `screenshots/S2-campaign-${vp.name}.png` });
-
-    // S3: Sheet Donasi (/c/[slug] dengan Sheet terbuka)
-    const donateBtn = page.getByRole('button', { name: /Berdonasi Sekarang/i });
-    if (await donateBtn.isVisible()) {
-      await donateBtn.click();
-      await page.waitForSelector('#donation-sheet-title');
-      await page.screenshot({ path: `screenshots/S3-donationsheet-${vp.name}.png` });
-    }
-
-    // S4: Dasbor Pengurus (/dashboard terautentikasi)
-    await page.goto('/login');
-    await page.fill('#login-email', EMAIL);
-    await page.fill('#login-password', PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/.*dashboard/);
-    await page.waitForLoadState('networkidle');
-    await page.screenshot({ path: `screenshots/S4-dashboard-${vp.name}.png` });
-
-    await context.close();
+  // S3: Sheet Donasi (/c/[slug] dengan Sheet terbuka)
+  const donateBtn = page.getByRole('button', { name: /Berdonasi Sekarang/i });
+  if (await donateBtn.isVisible()) {
+    await donateBtn.click();
+    await page.waitForSelector('#donation-sheet-title');
+    await page.screenshot({ path: `screenshots/S3-donationsheet-${vpName}.png` });
   }
+
+  // S4: Dasbor Pengurus (/dashboard terautentikasi)
+  await page.goto('/login');
+  await page.fill('#login-email', EMAIL);
+  await page.fill('#login-password', PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.waitForURL(/.*dashboard/);
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: `screenshots/S4-dashboard-${vpName}.png` });
 });
 
