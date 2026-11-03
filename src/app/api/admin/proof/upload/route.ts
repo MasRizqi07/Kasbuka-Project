@@ -43,8 +43,8 @@ export const POST = withAdminAuth(async (req) => {
       );
     }
 
-    // Simpan file dengan nama UUID
-    const proofUrl = await saveProofFileLocally(buffer, validation.extension);
+    // Simpan file dengan nama hash SHA-256 (PRD 5.2)
+    const proofUrl = await saveProofFileLocally(buffer, validation.extension, validation.proofSha256);
 
     return NextResponse.json({
       message: 'Foto bukti berhasil diunggah',

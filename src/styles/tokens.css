@@ -12,13 +12,13 @@
   --masuk: #17694A;
   --keluar: #A83A1B;
   --garis: #BFD3C8;
-  --garis-tegas: #8FAE9F;
+  --garis-tegas: #6F9080; /* Kontras 3,57:1 terhadap putih, lolos WCAG AA UI 3:1 (PRD 5.1) */
   --blok: #E6EEE8;
   --peringatan-latar: #FBEFD5;
 
-  /* 4.2 Tipografi */
-  --font-utama: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
-  --font-tangan: 'Kalam', 'Segoe Print', cursive;
+  /* 4.2 Tipografi (via next/font) */
+  --font-utama: var(--font-utama-next, 'Schibsted Grotesk', system-ui, -apple-system, sans-serif);
+  --font-tangan: var(--font-tangan-next, 'Kalam', 'Segoe Print', cursive);
 
   /* Ukuran font & berat (Skala Mobile / Desktop) */
   --judul-1-size: 30px;

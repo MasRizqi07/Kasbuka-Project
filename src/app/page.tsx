@@ -39,10 +39,11 @@ export default function HomePage() {
 
           <div style={{ background: 'var(--putih)', border: '1px solid var(--garis)', padding: '0' }}>
             <div style={{ background: 'var(--blok)', padding: '10px 16px', fontSize: '13px', fontWeight: 700, borderBottom: '1.5px solid var(--garis-tegas)', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Buku kas: Musala Al-Ikhlas</span>
-              <span className="tabular-angka">Saldo Rp 7.955.050</span>
+              <span>Buku kas: Musala Al-Ikhlas (Contoh)</span>
+              <span className="tabular-angka">Saldo Contoh Rp 7.955.050</span>
             </div>
-            <div style={{ padding: '16px' }}>
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Baris IN Contoh */}
               <div style={{ padding: '10px 0', borderBottom: '1px solid var(--garis)', display: 'flex', gap: '12px', fontSize: '14px', background: 'var(--blok)' }}>
                 <div style={{ width: '48px', color: 'var(--tinta-redup)', fontSize: '13px', borderRight: '2px solid var(--garis-tegas)', paddingRight: '6px', flexShrink: 0 }}>
                   <div style={{ fontWeight: 700, color: 'var(--tinta)' }}>#12</div>
@@ -55,6 +56,29 @@ export default function HomePage() {
                   </div>
                   <div style={{ fontFamily: 'var(--font-tangan)', fontSize: '16px', marginTop: '4px', paddingLeft: '12px', borderLeft: '2px solid var(--garis-tegas)' }}>
                     &ldquo;Semoga atapnya segera selesai, Pak.&rdquo;
+                  </div>
+                </div>
+              </div>
+
+              {/* Baris OUT Contoh dengan Tombol Lihat Bukti (PRD 5.1: wajib punya tombol 'Lihat bukti') */}
+              <div style={{ padding: '10px 0', display: 'flex', gap: '12px', fontSize: '14px' }}>
+                <div style={{ width: '48px', color: 'var(--tinta-redup)', fontSize: '13px', borderRight: '2px solid var(--garis-tegas)', paddingRight: '6px', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--tinta)' }}>#11</div>
+                  <div>26 Okt</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <strong style={{ color: 'var(--tinta)' }}>Beli Seng &amp; Paku 10 Dus</strong>
+                    <span className="tabular-angka" style={{ color: 'var(--keluar)', fontWeight: 700 }}>− Rp 850.000</span>
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <Link
+                      href="/c/atap-musala-al-ikhlas"
+                      className="btn btn-sm btn-outline-garis"
+                      style={{ height: '30px', fontSize: '12.5px', padding: '0 10px', textDecoration: 'none' }}
+                    >
+                      Lihat bukti nota &rarr;
+                    </Link>
                   </div>
                 </div>
               </div>

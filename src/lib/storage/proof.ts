@@ -90,17 +90,19 @@ export function validateProofMagicBytes(buffer: Buffer): ProofValidationResult {
 }
 
 /**
- * Menyimpan file bukti ke folder publik dengan nama acak UUID
- * (PRD Bagian 10: nama file diganti UUID)
+ * Menyimpan file bukti ke folder upload (kunci objek memakai proofSha256 - PRD 5.2)
  */
-export async function saveProofFileLocally(buffer: Buffer, extension: string): Promise<string> {
-  const fileUuid = crypto.randomUUID();
-  const fileName = `${fileUuid}.${extension}`;
+export async function saveProofFileLocally(
+  buffer: Buffer,
+  extension: string,
+  proofSha256?: string
+): Promise<string> {
+  const fileName = proofSha256 ? `${proofSha256}.${extension}` : `${crypto.randomUUID()}.${extension}`;
   const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
 
   await fs.mkdir(uploadDir, { recursive: true });
   const fullPath = path.join(uploadDir, fileName);
   await fs.writeFile(fullPath, buffer);
 
-  return `/uploads/proofs/${fileName}`;
+  return `/api/proof/${proofSha256 || fileName}`;
 }

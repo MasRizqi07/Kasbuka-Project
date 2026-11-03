@@ -152,6 +152,29 @@ Akses aplikasi di browser pada `http://localhost:3000`.
 
 ---
 
+## Variabel Lingkungan (Environment Variables)
+
+Semua konfigurasi lingkungan didefinisikan dalam `.env` berdasarkan template `.env.example`.
+Tidak ada rahasia (secret) yang menggunakan prefix `NEXT_PUBLIC_` selain client key Midtrans publik (PRD Bagian 10).
+
+| Variabel | Keterangan | Lingkungan |
+|---|---|---|
+| `DATABASE_URL` | String koneksi PostgreSQL utama | Server |
+| `DATABASE_URL_TEST` | String koneksi PostgreSQL khusus pengujian (`kasbuka_test`) | Server (Test) |
+| `AUTH_SECRET` | Kunci enkripsi sesi pengurus (minimum 32 karakter) | Server |
+| `MIDTRANS_SERVER_KEY` | Server Key Midtrans untuk verifikasi webhook & Snap API | Server |
+| `MIDTRANS_CLIENT_KEY` | Client Key Midtrans untuk integrasi Snap | Server |
+| `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` | Client Key Midtrans publik untuk memuat script Snap.js di browser | Publik Client |
+| `MIDTRANS_IS_PRODUCTION` | Flag mode Midtrans (`false` untuk Sandbox, `true` untuk Production) | Server |
+| `DONATIONS_ENABLED` | Flag aktivasi donasi online (`false` di production pilot sesuai D1) | Server & Client |
+| `STORAGE_BUCKET` | Nama bucket Cloudflare R2 / S3 penyimpanan bukti nota | Server |
+| `STORAGE_ENDPOINT` | Endpoint S3-compatible Cloudflare R2 | Server |
+| `STORAGE_ACCESS_KEY_ID` | Access Key ID Cloudflare R2 | Server |
+| `STORAGE_SECRET_ACCESS_KEY` | Secret Access Key Cloudflare R2 | Server |
+| `STORAGE_PUBLIC_URL` | URL publik bucket bukti nota | Server |
+
+---
+
 ## Lisensi & Atribusi
 
 Dikembangkan sebagai proyek transparansi dana publik oleh Rizqi (Pacoel).

@@ -1,5 +1,20 @@
 import type { Metadata } from 'next';
+import { Schibsted_Grotesk, Kalam } from 'next/font/google';
 import './globals.css';
+
+const schibsted = Schibsted_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '700', '800'],
+  variable: '--font-utama-next',
+  display: 'swap',
+});
+
+const kalam = Kalam({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-tangan-next',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Kasbuka — Buku kas penggalangan dana komunitas',
@@ -20,15 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Kalam:wght@400&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="id" className={`${schibsted.variable} ${kalam.variable}`}>
       <body>{children}</body>
     </html>
   );
