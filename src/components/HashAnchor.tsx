@@ -57,7 +57,7 @@ export const HashAnchor: React.FC<Props> = ({ slug, lastHash, lastEntryDate, tot
           <strong>{res.isValid ? 'Rantai valid ✓' : `Rantai putus di entri #${res.brokenAtSeq}`}</strong>
           {res.isValid && <span> ({res.totalEntries} entri, hash {res.lastHash?.slice(0, 12)}…).</span>}
           <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--tinta-redup)' }}>
-            Simpan atau bagikan hash terakhir ini di grup. Kalau suatu hari berbeda, catatan sudah berubah.
+            Simpan atau bagikan hash terakhir ini di grup. Kalau suatu hari berbeda, catatan sudah berubah. Rantai hash tidak membuktikan nota fisik asli, melainkan memastikan buku kas tidak dimanipulasi setelah dicatat.
           </p>
         </div>
       )}

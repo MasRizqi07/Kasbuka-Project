@@ -115,7 +115,7 @@ export function DonationSheet({
           color: 'var(--tinta-redup)',
         }}
       >
-        <strong>Donasi online belum aktif.</strong> Hubungi pengurus langsung untuk donasi.
+        <strong>Donasi online belum aktif.</strong> Hubungi pengurus.
       </div>
     );
   }

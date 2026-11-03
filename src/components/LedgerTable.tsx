@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { formatRupiahDisplay } from './SaldoEquation';
+import { ProofModal } from './ProofModal';
 
 export interface LedgerItem {
   id: string;
@@ -38,6 +39,25 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
   onLoadMore,
 }) => {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [selectedProof, setSelectedProof] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    proofUrl?: string | null;
+  }>({ isOpen: false, title: '', description: '' });
+
+  const handleViewProof = (seq: number, title: string, desc: string, url?: string | null) => {
+    if (onViewProof) {
+      onViewProof(seq, title, desc, url);
+    } else {
+      setSelectedProof({
+        isOpen: true,
+        title,
+        description: desc,
+        proofUrl: url,
+      });
+    }
+  };
 
   const handleCopyHash = (hash: string) => {
     navigator.clipboard.writeText(hash);
@@ -161,7 +181,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                       {entry.proofUrl && (
                         <button
                           type="button"
-                          onClick={() => onViewProof?.(entry.seq, `Bukti Nota #${entry.seq}`, entry.description || '', entry.proofUrl)}
+                          onClick={() => handleViewProof(entry.seq, `Bukti Nota #${entry.seq}`, entry.description || '', entry.proofUrl)}
                           style={{ fontSize: '13px', fontWeight: 700, color: 'var(--tinta)', textDecoration: 'underline', cursor: 'pointer' }}
                         >
                           Lihat bukti
@@ -230,6 +250,14 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
           </button>
         </div>
       )}
+      {/* Modal Bukti Nota */}
+      <ProofModal
+        isOpen={selectedProof.isOpen}
+        onClose={() => setSelectedProof((prev) => ({ ...prev, isOpen: false }))}
+        title={selectedProof.title}
+        description={selectedProof.description}
+        proofUrl={selectedProof.proofUrl}
+      />
     </section>
   );
 };

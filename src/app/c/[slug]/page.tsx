@@ -162,11 +162,11 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
             <strong>Dasar penggalangan</strong>
             {campaign.basis === 'BERIZIN' ? (
               <div>
-                Penggalangan berizin. Izin No. {campaign.permitNumber || '—'}, {permitDateFormatted}. Kasbuka mencatat, tidak memeriksa keabsahan izin.
+                Penggalangan berizin. Izin No. {campaign.permitNumber || '—'}, {permitDateFormatted}. Kasbuka mencatat, tidak memeriksa keabsahan izin. Rantai hash membuktikan integritas catatan, bukan keaslian fisik nota.
               </div>
             ) : (
               <div>
-                Penggalangan terbatas untuk komunitas internal. Tidak dibuka untuk umum. Kasbuka murni mencatat laporan keuangan.
+                Penggalangan terbatas untuk komunitas internal. Tidak dibuka untuk umum. Kasbuka murni mencatat laporan keuangan, tidak memeriksa keabsahan izin. Rantai hash tidak membuktikan nota fisik asli.
               </div>
             )}
           </div>

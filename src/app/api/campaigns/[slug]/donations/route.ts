@@ -23,6 +23,14 @@ export async function POST(
 ) {
   const { slug } = await props.params;
 
+  // 0. Guard Keputusan D1: Jika donasi online dinonaktifkan di production pilot
+  if (process.env.DONATIONS_ENABLED === 'false') {
+    return NextResponse.json(
+      { error: 'Donasi online belum aktif. Hubungi pengurus.' },
+      { status: 403 }
+    );
+  }
+
   // 1. Rate Limiter per IP (PRD 4.6: maks 20 pembuatan donasi per menit)
   const clientIp = getClientIp(request);
   const rateLimit = await checkRateLimit({

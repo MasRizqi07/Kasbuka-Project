@@ -123,8 +123,8 @@ export default function HomePage() {
           <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: 'var(--tinta)' }}>Yang Kasbuka tidak lakukan</h3>
           <ul style={{ listStyleType: 'square', paddingLeft: '20px', fontSize: '15px', color: 'var(--tinta)', lineHeight: 1.6 }}>
             <li><strong>Tidak memegang atau menampung dana.</strong> Donasi disalurkan langsung via payment gateway ke rekening organisasi; Kasbuka murni alat pencatatan transparansi.</li>
-            <li><strong>Tidak memeriksa keabsahan izin dinas.</strong> Status izin dicantumkan apa adanya sesuai pengakuan pengurus untuk dinilai sendiri oleh publik.</li>
-            <li><strong>Tidak menjamin pengurus jujur.</strong> Sistem hash chain memastikan catatan yang sudah ditulis tidak bisa diubah diam-diam, namun tidak menggantikan ketelitian warga.</li>
+            <li><strong>Tidak memeriksa keabsahan izin dinas.</strong> Status izin dicantumkan apa adanya sesuai pengakuan pengurus untuk dinilai sendiri oleh publik. Kasbuka mencatat, tidak memeriksa keabsahan izin.</li>
+            <li><strong>Tidak membuktikan keaslian fisik nota.</strong> Sistem hash chain memastikan catatan yang sudah ditulis tidak bisa diubah diam-diam, namun rantai hash tidak membuktikan nota fisik asli.</li>
           </ul>
         </section>
       </main>
