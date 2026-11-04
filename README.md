@@ -154,24 +154,47 @@ Akses aplikasi di browser pada `http://localhost:3000`.
 
 ## Variabel Lingkungan (Environment Variables)
 
-Semua konfigurasi lingkungan didefinisikan dalam `.env` berdasarkan template `.env.example`.
+Daftar resmi seluruh variabel lingkungan dikelola secara tunggal di [.env.example](.env.example).
 Tidak ada rahasia (secret) yang menggunakan prefix `NEXT_PUBLIC_` selain client key Midtrans publik (PRD Bagian 10).
 
-| Variabel | Keterangan | Lingkungan |
-|---|---|---|
-| `DATABASE_URL` | String koneksi PostgreSQL utama | Server |
-| `DATABASE_URL_TEST` | String koneksi PostgreSQL khusus pengujian (`kasbuka_test`) | Server (Test) |
-| `AUTH_SECRET` | Kunci enkripsi sesi pengurus (minimum 32 karakter) | Server |
-| `MIDTRANS_SERVER_KEY` | Server Key Midtrans untuk verifikasi webhook & Snap API | Server |
-| `MIDTRANS_CLIENT_KEY` | Client Key Midtrans untuk integrasi Snap | Server |
-| `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` | Client Key Midtrans publik untuk memuat script Snap.js di browser | Publik Client |
-| `MIDTRANS_IS_PRODUCTION` | Flag mode Midtrans (`false` untuk Sandbox, `true` untuk Production) | Server |
-| `DONATIONS_ENABLED` | Flag aktivasi donasi online (`false` di production pilot sesuai D1) | Server & Client |
-| `STORAGE_BUCKET` | Nama bucket Cloudflare R2 / S3 penyimpanan bukti nota | Server |
-| `STORAGE_ENDPOINT` | Endpoint S3-compatible Cloudflare R2 | Server |
-| `STORAGE_ACCESS_KEY_ID` | Access Key ID Cloudflare R2 | Server |
-| `STORAGE_SECRET_ACCESS_KEY` | Secret Access Key Cloudflare R2 | Server |
-| `STORAGE_PUBLIC_URL` | URL publik bucket bukti nota | Server |
+---
+
+## Panduan Deployment Staging
+
+Untuk melakukan verifikasi staging di platform Vercel / Cloudflare Pages:
+
+1. **Siapkan Database Terkelola (Supabase / Neon):**
+   - Dapatkan `DATABASE_URL` (dengan connection pooling/pgBouncer).
+   - Dapatkan `DIRECT_URL` (koneksi langsung ke PostgreSQL port 5432 untuk migrasi DDL).
+
+2. **Jalankan Migrasi Database Staging:**
+   ```bash
+   DATABASE_URL="<STAGING_DATABASE_URL>" DIRECT_URL="<STAGING_DIRECT_URL>" npx prisma migrate deploy
+   ```
+
+3. **Verifikasi Trigger Append-Only Aktif:**
+   ```sql
+   SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = 'trg_ledger_entry_append_only';
+   -- Pastikan tgenabled = 'O'
+   ```
+
+4. **Konfigurasi Environment Variable Staging di Vercel:**
+   Salin nilai sesuai daftar di `.env.example`:
+   - `DATABASE_URL` & `DIRECT_URL`
+   - `AUTH_SECRET`: string acak minimum 32 karakter
+   - `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY` (kredensial Sandbox dari Midtrans Dashboard)
+   - `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY`
+   - `MIDTRANS_IS_PRODUCTION="false"`
+   - `DONATIONS_ENABLED="true"` (untuk pengujian donasi di staging)
+   - `STORAGE_PROVIDER="supabase"`
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`
+   - `NEXT_PUBLIC_APP_URL="https://<nama-project>.vercel.app"`
+
+5. **Uji Transaksi Nyata di Staging:**
+   - Lakukan donasi uji via Midtrans Sandbox simulator.
+   - Periksa status entri pada tabel `Donation` berubah menjadi `PAID` (bukan `SETTLED`, status `PAID` adalah representasi lunas di `DonationStatus` schema.prisma).
+   - Periksa pembentukan baris otomatis di `LedgerEntry` bertipe `IN` dengan `source = 'MIDTRANS'` dan `donationId`.
+   - Periksa pencatatan di `WebhookEvent` dengan `result = 'PROCESSED'`.
 
 ---
 

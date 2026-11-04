@@ -23,8 +23,13 @@ export async function POST(
 ) {
   const { slug } = await props.params;
 
-  // 0. Guard Keputusan D1: Jika donasi online dinonaktifkan di production pilot
-  if (process.env.DONATIONS_ENABLED === 'false') {
+  // 0. Guard Keputusan D1: Jika donasi online dinonaktifkan di production pilot (default false di production)
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDonationsEnabled = isProd
+    ? process.env.DONATIONS_ENABLED === 'true'
+    : process.env.DONATIONS_ENABLED !== 'false';
+
+  if (!isDonationsEnabled) {
     return NextResponse.json(
       { error: 'Donasi online belum aktif. Hubungi pengurus.' },
       { status: 403 }

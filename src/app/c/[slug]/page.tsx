@@ -103,7 +103,10 @@ export default async function CampaignPublicPage({ params }: CampaignPageProps) 
     : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const waShareText = `Buku kas terbuka: ${campaign.title} - https://kasbuka.org/c/${campaign.slug} (Hash terakhir: ${lastHashSnippet} per ${lastDateFormatted})`;
-  const donationsEnabled = process.env.DONATIONS_ENABLED !== 'false';
+  const isProd = process.env.NODE_ENV === 'production';
+  const donationsEnabled = isProd
+    ? process.env.DONATIONS_ENABLED === 'true'
+    : process.env.DONATIONS_ENABLED !== 'false';
 
   return (
     <>
