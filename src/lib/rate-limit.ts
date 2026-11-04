@@ -69,14 +69,30 @@ export async function checkRateLimit(
 }
 
 export function getClientIp(req: Request): string {
-  const xForwardedFor = req.headers.get('x-forwarded-for');
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0].trim();
+  // Hanya mempercayai header dari proxy platform terpercaya (Aturan 8.2 C)
+  // 1. Vercel: x-vercel-forwarded-for
+  // 2. Cloudflare: cf-connecting-ip
+  // 3. Reverse proxy standar (nginx/caddy): x-real-ip
+  const vercelIp = req.headers.get('x-vercel-forwarded-for');
+  if (vercelIp) {
+    return vercelIp.split(',')[0].trim();
   }
+
+  const cfIp = req.headers.get('cf-connecting-ip');
+  if (cfIp) {
+    return cfIp.trim();
+  }
+
   const xRealIp = req.headers.get('x-real-ip');
   if (xRealIp) {
     return xRealIp.trim();
   }
+
+  const xForwardedFor = req.headers.get('x-forwarded-for');
+  if (xForwardedFor) {
+    return xForwardedFor.split(',')[0].trim();
+  }
+
   return '127.0.0.1';
 }
 

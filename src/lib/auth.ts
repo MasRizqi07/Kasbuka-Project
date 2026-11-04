@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { prisma } from './prisma';
 
 export interface AdminSession {
@@ -17,6 +18,14 @@ export interface AdminSession {
 }
 
 export const SESSION_COOKIE_NAME = 'kasbuka_session';
+
+/**
+ * Hash token sesi menggunakan SHA-256 (Aturan 8.2 C).
+ * Token mentah dikirim ke cookie klien, hanya hash SHA-256 yang disimpan di database.
+ */
+export function hashSessionToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 /**
  * Hash password baru dengan bcrypt
@@ -40,14 +49,16 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 export async function getServerSession(): Promise<AdminSession | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-    if (!token) {
+    if (!rawToken) {
       return null;
     }
 
+    const hashedToken = hashSessionToken(rawToken);
+
     const session = await prisma.session.findUnique({
-      where: { token },
+      where: { token: hashedToken },
       include: {
         user: {
           include: {
