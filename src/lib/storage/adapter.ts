@@ -11,18 +11,21 @@ export interface ProofStorage {
  * Adapter Filesystem Lokal (hanya untuk development & testing lokal)
  */
 export class LocalDiskStorage implements ProofStorage {
-  private uploadDir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
+  private getUploadDir(): string {
+    return path.join(process.cwd(), 'public', 'uploads', 'proofs');
+  }
 
   async save(buffer: Buffer, hash: string, extension: string): Promise<string> {
-    await fs.mkdir(this.uploadDir, { recursive: true });
-    const fullPath = path.join(this.uploadDir, `${hash}.${extension}`);
+    const dir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
+    await fs.mkdir(dir, { recursive: true });
+    const fullPath = path.join(process.cwd(), 'public', 'uploads', 'proofs', `${hash}.${extension}`);
     await fs.writeFile(fullPath, buffer);
     return `/api/proof/${hash}`;
   }
 
   async get(hash: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
     for (const ext of ['jpg', 'png', 'webp', 'jpeg']) {
-      const candidate = path.join(this.uploadDir, `${hash}.${ext}`);
+      const candidate = path.join(process.cwd(), 'public', 'uploads', 'proofs', `${hash}.${ext}`);
       try {
         await fs.access(candidate);
         const fileBuffer = await fs.readFile(candidate);

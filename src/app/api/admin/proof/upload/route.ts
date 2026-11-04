@@ -37,7 +37,7 @@ export const POST = withAdminAuth(async (req) => {
     // Validasi Magic Bytes di server (US-3)
     const validation = validateProofMagicBytes(buffer);
 
-    if (!validation.isValid || !validation.extension || !validation.proofSha256) {
+    if (!validation.isValid || !validation.extension || !validation.proofSha256 || !validation.mimeType) {
       return NextResponse.json(
         { error: 'Unprocessable Entity', message: validation.error || 'File tidak valid.' },
         { status: 422 }

@@ -19,7 +19,7 @@ export async function GET(
     return NextResponse.json({ error: 'File bukti nota tidak ditemukan.' }, { status: 404 });
   }
 
-  return new NextResponse(file.buffer, {
+  return new NextResponse(new Uint8Array(file.buffer), {
     status: 200,
     headers: {
       'Content-Type': file.mimeType,
