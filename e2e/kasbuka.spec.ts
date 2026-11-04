@@ -4,7 +4,10 @@ import bcrypt from 'bcryptjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const prisma = new PrismaClient();
+const testDbUrl = process.env.DATABASE_URL_TEST || 'postgresql://postgres:postgres@localhost:5433/kasbuka_test';
+const prisma = new PrismaClient({
+  datasources: { db: { url: testDbUrl } },
+});
 
 const E2E_ORG_NAME = 'Komunitas E2E Musala Al-Ikhlas';
 const E2E_CAMPAIGN_SLUG = 'musala-e2e-test';

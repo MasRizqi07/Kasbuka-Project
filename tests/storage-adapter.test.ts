@@ -95,8 +95,7 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
   });
 
   it('4. getProofStorage() melempar error keras jika STORAGE_PROVIDER=local di lingkungan production', () => {
-    process.env.NODE_ENV = 'production';
-    process.env.STORAGE_PROVIDER = 'local';
+    Object.assign(process.env, { NODE_ENV: 'production', STORAGE_PROVIDER: 'local' });
 
     expect(() => getProofStorage()).toThrow('STORAGE_PROVIDER=local dilarang di lingkungan production');
   });
@@ -108,8 +107,7 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
   });
 
   it('6. getProofStorage() mengembalikan LocalDiskStorage di lingkungan development/test', () => {
-    process.env.NODE_ENV = 'test';
-    process.env.STORAGE_PROVIDER = 'local';
+    Object.assign(process.env, { NODE_ENV: 'test', STORAGE_PROVIDER: 'local' });
     const storage = getProofStorage();
     expect(storage).toBeInstanceOf(LocalDiskStorage);
   });

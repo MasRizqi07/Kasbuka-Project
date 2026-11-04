@@ -114,7 +114,7 @@ export class SupabaseStorageAdapter implements ProofStorage {
  */
 export function getProofStorage(): ProofStorage {
   const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === 'production' && process.env.E2E_TEST !== 'true';
 
   if (provider === 'local') {
     if (isProd) {

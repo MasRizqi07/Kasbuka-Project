@@ -4,7 +4,10 @@ import bcrypt from 'bcryptjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const prisma = new PrismaClient();
+const testDbUrl = process.env.DATABASE_URL_TEST || 'postgresql://postgres:postgres@localhost:5433/kasbuka_test';
+const prisma = new PrismaClient({
+  datasources: { db: { url: testDbUrl } },
+});
 const SLUG = 'musala-e2e-test';
 const EMAIL = 'pengurus.e2e@kasbuka.org';
 const PASSWORD = 'PasswordE2E123!';
