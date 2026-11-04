@@ -11,10 +11,6 @@ export interface ProofStorage {
  * Adapter Filesystem Lokal (hanya untuk development & testing lokal)
  */
 export class LocalDiskStorage implements ProofStorage {
-  private getUploadDir(): string {
-    return path.join(process.cwd(), 'public', 'uploads', 'proofs');
-  }
-
   async save(buffer: Buffer, hash: string, extension: string): Promise<string> {
     const dir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
     await fs.mkdir(dir, { recursive: true });
@@ -42,17 +38,24 @@ export class LocalDiskStorage implements ProofStorage {
 }
 
 /**
- * Adapter Object Storage (R2 / Supabase Storage via REST API bawaan fetch tanpa SDK pihak ketiga)
+ * Adapter Supabase Storage (REST API bawaan fetch dengan service-role key — hanya di sisi server)
+ * Sesuai Aturan 8.5 L: Satu implementasi object storage standar tanpa SDK berat.
  */
-export class ObjectStorageAdapter implements ProofStorage {
+export class SupabaseStorageAdapter implements ProofStorage {
   private endpoint: string;
   private bucket: string;
-  private apiKey: string;
+  private serviceRoleKey: string;
 
   constructor() {
-    this.endpoint = (process.env.STORAGE_ENDPOINT || process.env.SUPABASE_URL || '').replace(/\/+$/, '');
-    this.bucket = process.env.STORAGE_BUCKET || 'kasbuka-proofs';
-    this.apiKey = process.env.STORAGE_ACCESS_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    this.endpoint = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+    this.bucket = process.env.SUPABASE_STORAGE_BUCKET || 'kasbuka-proofs';
+    this.serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+    if (!this.endpoint || !this.serviceRoleKey) {
+      throw new Error(
+        'Konfigurasi Supabase Storage belum lengkap: SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY wajib diisi.'
+      );
+    }
   }
 
   async save(buffer: Buffer, hash: string, extension: string, mimeType: string): Promise<string> {
@@ -62,16 +65,16 @@ export class ObjectStorageAdapter implements ProofStorage {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.serviceRoleKey}`,
         'Content-Type': mimeType,
         'x-upsert': 'true',
       },
-      body: buffer as unknown as BodyInit,
+      body: new Uint8Array(buffer),
     });
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Gagal mengunggah ke Object Storage: ${res.status} ${errText}`);
+      throw new Error(`Gagal mengunggah ke Supabase Storage: ${res.status} ${errText}`);
     }
 
     return `/api/proof/${hash}`;
@@ -85,7 +88,7 @@ export class ObjectStorageAdapter implements ProofStorage {
       try {
         const res = await fetch(url, {
           headers: {
-            Authorization: `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.serviceRoleKey}`,
           },
         });
 
@@ -98,7 +101,7 @@ export class ObjectStorageAdapter implements ProofStorage {
           }
         }
       } catch {
-        // Coba ekstensi lain
+        // Coba ekstensi lain jika kandidat ini gagal
       }
     }
     return null;
@@ -106,16 +109,26 @@ export class ObjectStorageAdapter implements ProofStorage {
 }
 
 /**
- * Pabrik adapter storage: Menggunakan Object Storage jika endpoint disetel (atau di production),
- * fallback ke filesystem lokal di lingkungan development.
+ * Pabrik adapter storage (Aturan 8.5 L):
+ * STORAGE_PROVIDER=local di production harus melempar error saat start/init.
  */
 export function getProofStorage(): ProofStorage {
-  const isObjectStorageConfigured = Boolean(
-    process.env.STORAGE_ENDPOINT || process.env.SUPABASE_URL
-  );
+  const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
+  const isProd = process.env.NODE_ENV === 'production';
 
-  if (isObjectStorageConfigured) {
-    return new ObjectStorageAdapter();
+  if (provider === 'local') {
+    if (isProd) {
+      throw new Error('STORAGE_PROVIDER=local dilarang di lingkungan production. Gunakan Supabase Storage.');
+    }
+    return new LocalDiskStorage();
+  }
+
+  if (provider === 'supabase') {
+    return new SupabaseStorageAdapter();
+  }
+
+  if (isProd) {
+    throw new Error(`STORAGE_PROVIDER '${provider}' tidak dikenal untuk production.`);
   }
 
   return new LocalDiskStorage();
