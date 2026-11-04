@@ -1,7 +1,6 @@
 import {
   GENESIS_PREV_HASH,
   computeEntryHash,
-  computeLegacyEntryHash,
   type LedgerEntryPayload,
 } from './hash';
 
@@ -68,20 +67,7 @@ export function verifyLedgerIntegrity(entries: VerifiableLedgerEntry[]): Verific
     }
 
     // C. Hitung ulang hash entri dari payload kanonikal
-    let recomputedHash = computeEntryHash(entry.prevHash, entry);
-
-    // Dukung kompatibilitas entri historis sebelum migrasi Fase 3.5b (ekstensi skema)
-    if (
-      entry.hash !== recomputedHash &&
-      entry.donationId == null &&
-      entry.feeSource == null &&
-      entry.paymentType == null
-    ) {
-      const legacyHash = computeLegacyEntryHash(entry.prevHash, entry);
-      if (entry.hash === legacyHash) {
-        recomputedHash = legacyHash;
-      }
-    }
+    const recomputedHash = computeEntryHash(entry.prevHash, entry);
 
     if (entry.hash !== recomputedHash) {
       return {
