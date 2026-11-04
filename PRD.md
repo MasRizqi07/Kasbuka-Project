@@ -164,7 +164,7 @@ Keputusan sengaja berbeda dari stack standar (Turborepo + NestJS terpisah). Alas
 |---|---|---|
 | App | Next.js (App Router), TypeScript strict | Satu repo, satu deployable. Route handler untuk API |
 | Database | PostgreSQL + Prisma | Neon atau Supabase Postgres |
-| Auth | Better Auth, email + password | Sesi server-side, cookie HttpOnly |
+| Auth | Autentikasi buatan sendiri (bcryptjs + tabel Session), email + password | Sesi server-side, cookie HttpOnly, hash SHA-256 sesi di DB. Catatan alasan: Better Auth tidak terpasang di Fase 0-3 dan tim memilih auth sederhana yang cukup untuk 1 admin per org (tangga malas) |
 | Pembayaran | Midtrans Snap, **sandbox dulu** | Server key hanya di env server |
 | Storage bukti | Cloudflare R2 atau Supabase Storage | Bucket publik hanya untuk bukti `OUT` |
 | Validasi | Zod di setiap route handler | Skema dipakai ulang untuk tipe |
@@ -177,7 +177,7 @@ Pemisahan ke service sendiri ditunda sampai ada beban nyata yang menuntutnya.
 
 ```
 Organization   id, name, createdAt
-User           id, email, passwordHash (dikelola auth lib), organizationId, role=ORG_ADMIN
+User           id, email, passwordHash (bcryptjs), organizationId, role=ORG_ADMIN
 Campaign       id, organizationId, slug (unique), title, story, targetAmount?,
                basis (BERIZIN|TERBATAS), permitNumber?, permitDate?,
                status (DRAFT|ACTIVE|CLOSED), createdAt
