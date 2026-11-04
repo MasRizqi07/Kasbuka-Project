@@ -45,7 +45,7 @@ export const HashAnchor: React.FC<Props> = ({ slug, lastHash, lastEntryDate, tot
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="button" onClick={copy} className="btn btn-sm btn-outline-garis" style={{ padding: '4px 10px', fontSize: '13px' }}>
-            {copied ? 'Tersalin ✓' : 'Salin'}
+            {copied ? 'Tersalin' : 'Salin'}
           </button>
           <button type="button" onClick={verify} disabled={loading} className="btn btn-sm" style={{ background: 'var(--tinta)', color: '#fff', padding: '4px 12px', fontSize: '13px' }}>
             {loading ? 'Memeriksa…' : 'Periksa keutuhan buku'}
@@ -54,7 +54,7 @@ export const HashAnchor: React.FC<Props> = ({ slug, lastHash, lastEntryDate, tot
       </div>
       {res && (
         <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '6px', background: res.isValid ? 'var(--blok)' : '#FDF0ED', border: res.isValid ? '1px solid var(--garis)' : '1px solid var(--keluar)', fontSize: '13.5px', color: 'var(--tinta)' }}>
-          <strong>{res.isValid ? 'Rantai valid ✓' : `Rantai putus di entri #${res.brokenAtSeq}`}</strong>
+          <strong>{res.isValid ? 'Rantai valid' : `Rantai putus di entri #${res.brokenAtSeq}`}</strong>
           {res.isValid && <span> ({res.totalEntries} entri, hash {res.lastHash?.slice(0, 12)}…).</span>}
           <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--tinta-redup)' }}>
             Simpan atau bagikan hash terakhir ini di grup. Kalau suatu hari berbeda, catatan sudah berubah. Rantai hash tidak membuktikan nota fisik asli, melainkan memastikan buku kas tidak dimanipulasi setelah dicatat.

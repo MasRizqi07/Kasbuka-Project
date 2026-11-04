@@ -238,7 +238,7 @@ export function DonationSheet({
               maxWidth: '460px',
               width: '100%',
               padding: '24px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              boxShadow: '0 -8px 0 0 rgba(30, 42, 120, 0.06)',
               position: 'relative',
               maxHeight: '90vh',
               overflowY: 'auto',
@@ -458,7 +458,7 @@ export function DonationSheet({
                   className="btn btn-primary"
                   style={{ width: '100%' }}
                 >
-                  Lanjut ke Data Diri &rarr;
+                  Lanjut ke Data Diri
                 </button>
               </div>
             )}
@@ -547,7 +547,7 @@ export function DonationSheet({
                     className="btn btn-primary"
                     style={{ flex: 2 }}
                   >
-                    Lanjut ke Doa &rarr;
+                    Lanjut ke Doa
                   </button>
                 </div>
               </div>

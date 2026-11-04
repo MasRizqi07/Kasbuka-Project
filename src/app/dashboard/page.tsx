@@ -343,7 +343,7 @@ export default function DashboardPage() {
         )}
 
         {toastMessage && (
-          <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: 'var(--tinta)', color: 'var(--putih)', padding: '14px 20px', borderRadius: '6px', fontWeight: 500, boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}>
+          <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: 'var(--tinta)', color: 'var(--putih)', padding: '14px 20px', borderRadius: '6px', fontWeight: 500, border: '1px solid var(--tinta)' }}>
             {toastMessage}
           </div>
         )}

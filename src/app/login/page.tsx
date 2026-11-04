@@ -48,7 +48,7 @@ export default function LoginPage() {
       </header>
 
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <div style={{ maxWidth: '420px', width: '100%', background: 'var(--putih)', border: '1px solid var(--garis)', borderRadius: '10px', padding: '32px 28px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+        <div style={{ maxWidth: '420px', width: '100%', background: 'var(--putih)', border: '1.5px solid var(--garis-tegas)', borderRadius: '10px', padding: '32px 28px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--tinta)', marginBottom: '8px' }}>
             Masuk Pengurus
           </h1>

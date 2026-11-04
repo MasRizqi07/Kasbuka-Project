@@ -77,7 +77,7 @@ export default function HomePage() {
                       className="btn btn-sm btn-outline-garis"
                       style={{ height: '30px', fontSize: '12.5px', padding: '0 10px', textDecoration: 'none' }}
                     >
-                      Lihat bukti nota &rarr;
+                      Lihat bukti nota
                     </Link>
                   </div>
                 </div>
