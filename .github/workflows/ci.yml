@@ -27,6 +27,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/kasbuka
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5433/kasbuka
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5433/kasbuka_test
       AUTH_SECRET: kasbuka_super_secret_auth_session_key_minimum_32_characters_long
       MIDTRANS_SERVER_KEY: SB-Mid-server-test-placeholder
@@ -57,7 +58,7 @@ jobs:
       - name: Deploy Prisma Migrations
         run: |
           npx prisma migrate deploy
-          DATABASE_URL=postgresql://postgres:postgres@localhost:5433/kasbuka_test npx prisma migrate deploy
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5433/kasbuka_test DIRECT_URL=postgresql://postgres:postgres@localhost:5433/kasbuka_test npx prisma migrate deploy
 
       - name: Run ESLint
         run: npm run lint
