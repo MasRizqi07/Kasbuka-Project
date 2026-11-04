@@ -73,3 +73,4 @@ export const GET = withAdminAuth(async (_req, session) => {
     );
   }
 });
+
