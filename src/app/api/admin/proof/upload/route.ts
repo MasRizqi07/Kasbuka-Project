@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth-guard';
-import { validateProofMagicBytes, saveProofFileLocally } from '@/lib/storage/proof';
+import { validateProofMagicBytes } from '@/lib/storage/proof';
+import { getProofStorage } from '@/lib/storage/adapter';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const POST = withAdminAuth(async (req) => {
@@ -43,8 +44,14 @@ export const POST = withAdminAuth(async (req) => {
       );
     }
 
-    // Simpan file dengan nama hash SHA-256 (PRD 5.2)
-    const proofUrl = await saveProofFileLocally(buffer, validation.extension, validation.proofSha256);
+    // Simpan file ke storage adapter (Object Storage di production, lokal di dev)
+    const storage = getProofStorage();
+    const proofUrl = await storage.save(
+      buffer,
+      validation.proofSha256,
+      validation.extension,
+      validation.mimeType
+    );
 
     return NextResponse.json({
       message: 'Foto bukti berhasil diunggah',

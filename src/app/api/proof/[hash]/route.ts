@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { validateProofMagicBytes } from '@/lib/storage/proof';
+import { getProofStorage } from '@/lib/storage/adapter';
 
 export async function GET(
   _request: Request,
@@ -14,36 +12,17 @@ export async function GET(
     return NextResponse.json({ error: 'Format hash bukti tidak valid.' }, { status: 400 });
   }
 
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
+  const storage = getProofStorage();
+  const file = await storage.get(hash);
 
-  let foundFile: string | null = null;
-  for (const ext of ['jpg', 'png', 'webp', 'jpeg']) {
-    const candidate = path.join(uploadDir, `${hash}.${ext}`);
-    try {
-      await fs.access(candidate);
-      foundFile = candidate;
-      break;
-    } catch {
-      // Cari ekstensi lainnya
-    }
-  }
-
-  if (!foundFile) {
+  if (!file) {
     return NextResponse.json({ error: 'File bukti nota tidak ditemukan.' }, { status: 404 });
   }
 
-  const fileBuffer = await fs.readFile(foundFile);
-
-  // PRD 5.2: Content-Type hasil sniff magic bytes nyata, bukan dari input klien
-  const validation = validateProofMagicBytes(fileBuffer);
-  if (!validation.isValid || !validation.mimeType) {
-    return NextResponse.json({ error: 'File bukti korup atau tidak valid.' }, { status: 415 });
-  }
-
-  return new NextResponse(fileBuffer, {
+  return new NextResponse(file.buffer, {
     status: 200,
     headers: {
-      'Content-Type': validation.mimeType,
+      'Content-Type': file.mimeType,
       'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
