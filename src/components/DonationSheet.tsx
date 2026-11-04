@@ -238,7 +238,7 @@ export function DonationSheet({
               maxWidth: '460px',
               width: '100%',
               padding: '24px',
-              boxShadow: '0 -8px 0 0 rgba(30, 42, 120, 0.06)',
+              border: '1px solid var(--garis, #D8E2DC)',
               position: 'relative',
               maxHeight: '90vh',
               overflowY: 'auto',

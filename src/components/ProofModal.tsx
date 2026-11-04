@@ -44,7 +44,6 @@ export const ProofModal: React.FC<ProofModalProps> = ({
           maxHeight: '90vh',
           overflowY: 'auto',
           border: '1px solid var(--garis-tegas)',
-          boxShadow: '0 -8px 0 0 rgba(30, 42, 120, 0.06)',
           position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
