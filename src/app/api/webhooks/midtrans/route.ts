@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyMidtransSignature } from '@/lib/midtrans/signature';
 import { calculateMidtransFee } from '@/lib/midtrans/fees';
+import { parseMidtransTime } from '@/lib/midtrans/time';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { LedgerService, withSeqRetry } from '@/lib/ledger/service';
 
 /**
@@ -54,16 +56,31 @@ export async function POST(request: Request) {
   });
 
   if (!isSignatureValid) {
-    // Catat WebhookEvent(signatureValid=false, REJECTED), balas 401
+    // 1. Batasi percobaan webhook signature salah per IP (Aturan 8.2 D)
+    const clientIp = getClientIp(request);
+    await checkRateLimit({
+      key: `webhook:invalid-sig:${clientIp}`,
+      limit: 20,
+      windowMs: 60 * 1000,
+    });
+
+    // 2. Hanya catat WebhookEvent jika orderId-nya benar-benar ada di tabel Donation (Aturan 8.2 D)
     if (orderId) {
-      await prisma.webhookEvent.create({
-        data: {
-          orderId,
-          transactionStatus: transactionStatus || 'unknown',
-          signatureValid: false,
-          result: 'REJECTED',
-        },
+      const donationExists = await prisma.donation.findUnique({
+        where: { orderId },
+        select: { id: true },
       });
+
+      if (donationExists) {
+        await prisma.webhookEvent.create({
+          data: {
+            orderId,
+            transactionStatus: transactionStatus || 'unknown',
+            signatureValid: false,
+            result: 'REJECTED',
+          },
+        });
+      }
     }
     return NextResponse.json({ error: 'Signature webhook tidak valid.' }, { status: 401 });
   }
@@ -162,11 +179,8 @@ export async function POST(request: Request) {
 
   // 6. Pemrosesan PAID dalam satu prisma.$transaction dibungkus withSeqRetry
   const feeResult = calculateMidtransFee(paymentType, donation.amount);
-  const paidAt = settlementTime
-    ? new Date(settlementTime)
-    : transactionTime
-    ? new Date(transactionTime)
-    : new Date();
+  // Parse waktu WIB (+07:00) dari Midtrans (Aturan 8.2 D)
+  const paidAt = parseMidtransTime(settlementTime || transactionTime);
 
   try {
     const outcome = await withSeqRetry(async () => {
@@ -181,8 +195,30 @@ export async function POST(request: Request) {
           },
         });
 
-        // Jika count === 0: sudah pernah diproses sebelumnya (DUPLICATE)
+        // Jika count === 0: donasi tidak lagi berstatus PENDING
         if (updateResult.count === 0) {
+          const currentDonation = await tx.donation.findUnique({
+            where: { orderId },
+            select: { status: true },
+          });
+
+          // Anomali: settlement tiba untuk donasi yang sudah FAILED atau EXPIRED (Aturan 8.2 D)
+          if (
+            currentDonation &&
+            (currentDonation.status === 'FAILED' || currentDonation.status === 'EXPIRED')
+          ) {
+            await tx.webhookEvent.create({
+              data: {
+                orderId,
+                transactionStatus,
+                signatureValid: true,
+                result: 'ANOMALY',
+              },
+            });
+            return { status: 200, result: 'ANOMALY' };
+          }
+
+          // Sudah pernah diproses sebagai PAID sebelumnya (idempoten)
           await tx.webhookEvent.create({
             data: {
               orderId,

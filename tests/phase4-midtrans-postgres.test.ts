@@ -649,4 +649,80 @@ describe('Postgres Live Integration Test (kasbuka_test): Fase 4 Midtrans & Webho
     expect(r4.success).toBe(false);
     expect(r4.remaining).toBe(0);
   });
+
+  // UJI 13: Signature salah tanpa donasi tidak mencatat WebhookEvent (Aturan 8.2 D)
+  it('Uji 13: Signature salah dengan orderId acak tidak dicatat di WebhookEvent', async () => {
+    const randomOrderId = `KSB-RANDOM-GHOST-${Date.now()}`;
+    const payload = {
+      order_id: randomOrderId,
+      status_code: '200',
+      gross_amount: '50000.00',
+      signature_key: '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      transaction_status: 'settlement',
+    };
+
+    const req = new Request('http://localhost:3000/api/webhooks/midtrans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const res = await handleMidtransWebhook(req);
+    expect(res.status).toBe(401);
+
+    // Pastikan tidak ada WebhookEvent yang dicatat untuk orderId yang tidak ada
+    const events = await testPrisma.webhookEvent.findMany({ where: { orderId: randomOrderId } });
+    expect(events.length).toBe(0);
+  });
+
+  // UJI 14: Settlement pada donasi yang sudah EXPIRED atau FAILED dicatat sebagai ANOMALY (Aturan 8.2 D)
+  it('Uji 14: Notifikasi settlement untuk donasi EXPIRED dicatat sebagai ANOMALY', async () => {
+    const orderId = `KSB-EXPIRED-SETTLEMENT-${Date.now()}`;
+    await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId,
+        amount: 75000n,
+        status: 'EXPIRED',
+      },
+    });
+
+    const statusCode = '200';
+    const grossAmount = '75000.00';
+    const validSig = computeMidtransSignature(orderId, statusCode, grossAmount, TEST_SERVER_KEY);
+
+    const payload = {
+      order_id: orderId,
+      status_code: statusCode,
+      gross_amount: grossAmount,
+      signature_key: validSig,
+      transaction_status: 'settlement',
+      payment_type: 'qris',
+      settlement_time: '2026-11-04 14:00:00',
+    };
+
+    const req = new Request('http://localhost:3000/api/webhooks/midtrans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const res = await handleMidtransWebhook(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.result).toBe('ANOMALY');
+
+    // Ledger tidak boleh ada entri baru yang tercatat otomatis
+    const entriesCount = await testPrisma.ledgerEntry.count({
+      where: { campaignId: testCampaignId },
+    });
+    expect(entriesCount).toBe(0);
+
+    // WebhookEvent tercatat sebagai ANOMALY
+    const event = await testPrisma.webhookEvent.findFirst({
+      where: { orderId, result: 'ANOMALY' },
+    });
+    expect(event).not.toBeNull();
+    expect(event?.result).toBe('ANOMALY');
+  });
 });
