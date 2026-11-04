@@ -114,8 +114,9 @@ describe('Postgres Live Integration Test (kasbuka_test): Autentikasi Pengurus (A
     const loginRes = await handleLogin(loginReq);
     expect(loginRes.status).toBe(200);
 
-    const rawCookieValue = loginRes.cookies.get(SESSION_COOKIE_NAME)?.value!;
-    expect(rawCookieValue).toBeDefined();
+    const cookieObj = loginRes.cookies.get(SESSION_COOKIE_NAME);
+    expect(cookieObj).toBeDefined();
+    const rawCookieValue = cookieObj!.value;
 
     // Ambil baris Session di PostgreSQL
     const sessions = await prisma.session.findMany({
@@ -148,7 +149,9 @@ describe('Postgres Live Integration Test (kasbuka_test): Autentikasi Pengurus (A
     });
 
     const loginRes = await handleLogin(loginReq);
-    const rawSessionToken = loginRes.cookies.get(SESSION_COOKIE_NAME)?.value!;
+    const cookieObj = loginRes.cookies.get(SESSION_COOKIE_NAME);
+    expect(cookieObj).toBeDefined();
+    const rawSessionToken = cookieObj!.value;
 
     // Pastikan baris sesi ada di database
     const hashed = hashSessionToken(rawSessionToken);
