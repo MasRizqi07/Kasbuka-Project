@@ -1,8 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SaldoEquation, formatRupiahDisplay } from '@/components/SaldoEquation';
+
+interface AnomalyItem {
+  id: string;
+  orderId: string;
+  transactionStatus: string;
+  receivedAt: string;
+  result: string;
+  amount?: string;
+  campaignTitle?: string;
+}
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'pengeluaran' | 'pemasukan'>('pengeluaran');
@@ -14,6 +24,18 @@ export default function DashboardPage() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [anomalies, setAnomalies] = useState<AnomalyItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/admin/anomalies')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.anomalies)) {
+          setAnomalies(data.anomalies);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Nilai simulasi saldo
   const saldoTersedia = 7955050n;
@@ -109,6 +131,63 @@ export default function DashboardPage() {
       </header>
 
       <main style={{ maxWidth: '1040px', width: '100%', margin: '0 auto', padding: '32px 24px 80px 24px', flex: 1 }}>
+        {/* Peringatan Anomali Webhook (Aturan 8.5 K) */}
+        {anomalies.length > 0 && (
+          <section
+            aria-label="Peringatan Anomali Transaksi"
+            style={{
+              marginBottom: '24px',
+              padding: '16px 20px',
+              backgroundColor: '#FFF9E6',
+              border: '1px solid #C07000',
+              borderRadius: '8px',
+              color: '#5C3600',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800 }}>⚠️ Perhatian:</span>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#5C3600' }}>
+                Terdapat {anomalies.length} Transaksi Masuk Berstatus Anomali
+              </h2>
+            </div>
+            <p style={{ fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0' }}>
+              Notifikasi pelunasan diterima untuk transaksi donasi yang sebelumnya telah berstatus kedaluwarsa atau gagal. Dana kemungkinan telah masuk ke rekening penyedia pembayaran, namun belum otomatis dicatat di buku kas.
+            </p>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #D8C080' }}>
+                    <th style={{ padding: '6px 8px' }}>Order ID</th>
+                    <th style={{ padding: '6px 8px' }}>Status Midtrans</th>
+                    <th style={{ padding: '6px 8px' }}>Nominal</th>
+                    <th style={{ padding: '6px 8px' }}>Waktu Diterima</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {anomalies.map((item) => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #EFE4C8' }}>
+                      <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 700 }}>{item.orderId}</td>
+                      <td style={{ padding: '6px 8px' }}>{item.transactionStatus}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {item.amount ? formatRupiahDisplay(BigInt(item.amount)) : '-'}
+                      </td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {new Date(item.receivedAt).toLocaleString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--tinta)' }}>Atap Musala Al-Ikhlas</h1>

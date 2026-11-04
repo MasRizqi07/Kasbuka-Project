@@ -46,10 +46,26 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Mengambil sesi admin server-side dari cookie HttpOnly
  * Mengembalikan AdminSession jika valid dan aktif, atau null jika tidak terautentikasi
  */
-export async function getServerSession(): Promise<AdminSession | null> {
+export async function getServerSession(req?: Request): Promise<AdminSession | null> {
   try {
-    const cookieStore = await cookies();
-    const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    let rawToken: string | undefined;
+
+    if (req) {
+      const cookieHeader = req.headers.get('cookie') || '';
+      const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]+)`));
+      if (match) {
+        rawToken = match[1];
+      }
+    }
+
+    if (!rawToken) {
+      try {
+        const cookieStore = await cookies();
+        rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+      } catch {
+        // cookies() dipanggil di luar request scope (misal unit test)
+      }
+    }
 
     if (!rawToken) {
       return null;

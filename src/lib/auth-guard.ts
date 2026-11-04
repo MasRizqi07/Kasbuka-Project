@@ -16,7 +16,7 @@ export type AuthenticatedRouteHandler = (
  */
 export function withAdminAuth(handler: AuthenticatedRouteHandler) {
   return async (req: Request, context?: unknown) => {
-    const session = await getServerSession();
+    const session = await getServerSession(req);
 
     if (!session || !session.user || session.user.role !== 'ORG_ADMIN') {
       return NextResponse.json(
