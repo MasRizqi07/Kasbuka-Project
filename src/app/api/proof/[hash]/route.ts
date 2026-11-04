@@ -9,8 +9,8 @@ export async function GET(
 ) {
   const { hash } = await props.params;
 
-  // Sanitasi hash: hanya karakter heksadesimal 64 karakter SHA-256 (mencegah path traversal)
-  if (!/^[a-f0-9]{64}$/i.test(hash)) {
+  // Validasi ketat format hash SHA-256 sebelum menyentuh storage (Aturan 8.2 E)
+  if (!/^[a-f0-9]{64}$/.test(hash)) {
     return NextResponse.json({ error: 'Format hash bukti tidak valid.' }, { status: 400 });
   }
 
