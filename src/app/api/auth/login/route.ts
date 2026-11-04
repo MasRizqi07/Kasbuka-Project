@@ -92,16 +92,20 @@ export async function POST(request: Request) {
     },
   });
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    expires: expiresAt,
-    path: '/',
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, rawToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: expiresAt,
+      path: '/',
+    });
+  } catch {
+    // cookies() dipanggil di luar request context (misal unit test)
+  }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     message: 'Login berhasil.',
     user: {
       id: user.id,
@@ -111,5 +115,15 @@ export async function POST(request: Request) {
       organizationId: user.organizationId,
     },
   });
+
+  response.cookies.set(SESSION_COOKIE_NAME, rawToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires: expiresAt,
+    path: '/',
+  });
+
+  return response;
 }
 
