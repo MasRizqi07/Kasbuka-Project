@@ -4,40 +4,58 @@ import readline from 'node:readline';
 
 const prisma = new PrismaClient();
 
-async function askQuestion(query: string, hidden = false): Promise<string> {
+/**
+ * Membaca input dari terminal.
+ * Jika hidden=true pada TTY, terminal diatur ke raw mode (tanpa echo karakter sama sekali)
+ * untuk mencegah password bocor di layar terminal (Aturan 5B S).
+ */
+export async function askQuestion(query: string, hidden = false): Promise<string> {
+  if (hidden && process.stdin.isTTY) {
+    return new Promise((resolve) => {
+      process.stdout.write(query);
+      let input = '';
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.setEncoding('utf8');
+
+      const onData = (chunk: string) => {
+        for (const char of chunk) {
+          if (char === '\r' || char === '\n' || char === '\u0004') {
+            process.stdin.setRawMode(false);
+            process.stdin.pause();
+            process.stdin.removeListener('data', onData);
+            process.stdout.write('\n');
+            resolve(input.trim());
+            return;
+          } else if (char === '\u0003') {
+            // Ctrl+C
+            process.stdin.setRawMode(false);
+            process.exit(1);
+          } else if (char === '\b' || char === '\x7f') {
+            // Backspace: hapus karakter terakhir
+            if (input.length > 0) {
+              input = input.slice(0, -1);
+            }
+          } else {
+            input += char;
+          }
+        }
+      };
+
+      process.stdin.on('data', onData);
+    });
+  }
+
   return new Promise((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
-    if (hidden && process.stdin.isTTY) {
-      process.stdout.write(query);
-      let input = '';
-      const onData = (char: Buffer) => {
-        const str = char.toString('utf8');
-        if (str === '\n' || str === '\r' || str === '\u0004') {
-          process.stdin.removeListener('data', onData);
-          process.stdout.write('\n');
-          rl.close();
-          resolve(input);
-        } else if (str === '\u0003') {
-          process.exit(1);
-        } else if (str === '\b' || str === '\x7f') {
-          if (input.length > 0) {
-            input = input.slice(0, -1);
-          }
-        } else {
-          input += str;
-        }
-      };
-      process.stdin.on('data', onData);
-    } else {
-      rl.question(query, (ans) => {
-        rl.close();
-        resolve(ans.trim());
-      });
-    }
+    rl.question(query, (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
   });
 }
 
@@ -45,7 +63,7 @@ async function main() {
   const allowReset = process.argv.includes('--reset-password');
 
   let email = process.env.ADMIN_EMAIL?.trim();
-  if (!email && process.stdin.isTTY) {
+  if (!email) {
     email = await askQuestion('Masukkan Email Admin: ');
   }
 
@@ -62,7 +80,7 @@ async function main() {
   }
 
   let password = process.env.ADMIN_PASSWORD?.trim();
-  if (!password && process.stdin.isTTY) {
+  if (!password) {
     password = await askQuestion('Masukkan Password Admin (min 12 karakter): ', true);
   }
 
@@ -77,7 +95,7 @@ async function main() {
   }
 
   let orgName = process.env.ADMIN_ORG?.trim();
-  if (!orgName && process.stdin.isTTY) {
+  if (!orgName) {
     orgName = await askQuestion('Masukkan Nama Organisasi: ');
   }
 
@@ -136,11 +154,13 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e.message || e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module || process.argv[1]?.includes('create-admin')) {
+  main()
+    .catch((e) => {
+      console.error(e.message || e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
