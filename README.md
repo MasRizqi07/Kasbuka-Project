@@ -198,6 +198,49 @@ Untuk melakukan verifikasi staging di platform Vercel / Cloudflare Pages:
 
 ---
 
+## Pemisahan Lingkungan: Staging vs Production & Prosedur Data Reset (Aturan 5B W)
+
+Untuk menjaga integritas dan akuntabilitas data, lingkungan Staging dan Production **wajib dipisahkan secara fisik** dan memiliki basis data serta konfigurasi yang berbeda.
+
+### 1. Prosedur Pembersihan Data Uji di Staging (Data Reset)
+Setelah pengujian simulasi Sandbox selesai atau sebelum mengulang uji integrasi, jalankan perintah TRUNCATE berikut di SQL Editor basis data Staging:
+
+```sql
+-- PERINGATAN: Hanya jalankan di basis data STAGING.
+-- Menghapus seluruh transaksi simulasi dan mereset nomor urut ledger:
+TRUNCATE TABLE "LedgerEntry", "Donation", "WebhookEvent", "RateLimit" CASCADE;
+
+-- Atau untuk mereset seluruh database staging ke keadaan awal (kosong bersih):
+TRUNCATE TABLE "LedgerEntry", "Donation", "WebhookEvent", "RateLimit", "Session", "Campaign", "User", "Organization" CASCADE;
+```
+
+### 2. Penyiapan Basis Data Production Terpisah
+Production **tidak boleh** berbagi database dengan Staging. Langkah penyiapan Production:
+1. **Buat Proyek Database Supabase Baru:**
+   - Buat proyek khusus `kasbuka-prod` di region yang sama dengan serverless runtime (misal `ap-south-1` Mumbai).
+   - Pastikan backup otomatis diaktifkan di dashboard Supabase.
+2. **Jalankan Migrasi DDL Fisik ke Production:**
+   ```bash
+   DATABASE_URL="<PROD_DATABASE_POOLER_URL>" DIRECT_URL="<PROD_DATABASE_DIRECT_URL>" npx prisma migrate deploy
+   ```
+3. **Verifikasi Keamanan Basis Data:**
+   - Pastikan trigger append-only aktif: `SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = 'trg_ledger_entry_append_only';` (`tgenabled = 'O'`).
+   - Pastikan RLS aktif di seluruh 8 tabel: `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';` (`rowsecurity = true`).
+4. **Buat Akun Pengurus Pilot Pertama:**
+   Jalankan script CLI dengan input password tersembunyi (raw mode muted):
+   ```bash
+   DATABASE_URL="<PROD_DATABASE_DIRECT_URL>" ADMIN_EMAIL="pengurus@pilot.org" ADMIN_ORG="Organisasi Pilot" npm run create-admin
+   ```
+5. **Siapkan Supabase Storage Privat:**
+   - Buat bucket `kasbuka-proofs` dengan status privat (bukan public).
+   - Pastikan role server menggunakan `STORAGE_PROVIDER="supabase"` dengan `SUPABASE_SERVICE_ROLE_KEY`.
+
+### 3. Aturan Saklar Donasi Online (`DONATIONS_ENABLED`)
+- **Staging:** `DONATIONS_ENABLED="true"` diaktifkan **hanya** saat pengujian end-to-end dengan Midtrans Sandbox Simulator.
+- **Production (Pilot):** `DONATIONS_ENABLED="false"` **wajib bernilai false** sebelum dan selama onboarding organisasi pilot nyata. Pengurus pilot mencatat transaksi kas operasional (IN manual dan OUT dengan bukti foto nota asli) tanpa membuka gerbang pembayaran daring hingga fase audit selesai.
+
+---
+
 ## Lisensi & Atribusi
 
 Dikembangkan sebagai proyek transparansi dana publik oleh Rizqi (Pacoel).
