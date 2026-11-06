@@ -764,8 +764,13 @@ describe('Postgres Live Integration Test (kasbuka_test): Fase 4 Midtrans & Webho
     const eventsCountBefore = await testPrisma.webhookEvent.count({ where: { orderId } });
     expect(eventsCountBefore).toBe(20);
 
-    // Spy pada prisma.donation.findUnique untuk memastikan tidak tersentuh saat 429
-    const findUniqueSpy = vi.spyOn(testPrisma.donation, 'findUnique');
+    // Track panggilan pada prisma.donation.findUnique untuk memastikan tidak tersentuh saat 429
+    const originalFindUnique = testPrisma.donation.findUnique;
+    let findUniqueCalledOn21 = false;
+    testPrisma.donation.findUnique = (async (...args: Parameters<typeof originalFindUnique>) => {
+      findUniqueCalledOn21 = true;
+      return originalFindUnique.apply(testPrisma.donation, args);
+    }) as typeof originalFindUnique;
 
     // Request ke-21 harus ditolak dengan 429
     const req21 = new Request('http://localhost:3000/api/webhooks/midtrans', {
@@ -783,12 +788,83 @@ describe('Postgres Live Integration Test (kasbuka_test): Fase 4 Midtrans & Webho
     expect(data21.error).toContain('Terlalu banyak percobaan');
 
     // Pastikan prisma.donation.findUnique tidak dipanggil pada request ke-21
-    expect(findUniqueSpy).not.toHaveBeenCalled();
+    expect(findUniqueCalledOn21).toBe(false);
 
     // Pastikan tidak ada baris WebhookEvent baru yang ditambahkan
     const eventsCountAfter = await testPrisma.webhookEvent.count({ where: { orderId } });
     expect(eventsCountAfter).toBe(20);
 
-    findUniqueSpy.mockRestore();
+    testPrisma.donation.findUnique = originalFindUnique;
+  });
+
+  // UJI 16: Donasi PAID via webhook menghasilkan entri nyata di PostgreSQL, dan verifikasi integritas rantai non-kosong terbukti VALID (Aturan 5B X)
+  it('Uji 16: Donasi PAID via webhook menghasilkan entri nyata di Postgres dan verifikasi keutuhan rantai non-kosong terbukti VALID', async () => {
+    const orderId = `KSB-VERIFY-CHAIN-${Date.now()}`;
+    const amount = 100000n;
+    const grossAmount = '100000.00';
+    const statusCode = '200';
+
+    // 1. Buat donasi PENDING
+    await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId,
+        amount,
+        status: 'PENDING',
+        donorName: 'Hamba Allah Dermawan',
+        message: 'Semoga berkah untuk umat',
+      },
+    });
+
+    // 2. Kirim webhook settlement dengan signature valid
+    const validSig = computeMidtransSignature(orderId, statusCode, grossAmount, TEST_SERVER_KEY);
+    const payload = {
+      order_id: orderId,
+      status_code: statusCode,
+      gross_amount: grossAmount,
+      signature_key: validSig,
+      transaction_status: 'settlement',
+      payment_type: 'qris',
+      settlement_time: '2026-11-06 12:30:00',
+    };
+
+    const webhookReq = new Request('http://localhost:3000/api/webhooks/midtrans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const webhookRes = await handleMidtransWebhook(webhookReq);
+    expect(webhookRes.status).toBe(200);
+    const webhookData = await webhookRes.json();
+    expect(webhookData.result).toBe('PROCESSED');
+
+    // 3. Verifikasi baris fisik terbentuk di tabel LedgerEntry PostgreSQL kasbuka_test
+    const entriesInDb = await testPrisma.ledgerEntry.findMany({
+      where: { campaignId: testCampaignId },
+      orderBy: { seq: 'asc' },
+    });
+
+    // Bukti konkret: totalEntries BUKAN nol
+    expect(entriesInDb.length).toBe(1);
+    const entry1 = entriesInDb[0];
+    expect(entry1.seq).toBe(1);
+    expect(entry1.type).toBe('IN');
+    expect(entry1.source).toBe('MIDTRANS');
+    expect(entry1.amount).toBe(amount);
+    expect(entry1.donationId).not.toBeNull();
+    expect(entry1.prevHash).toBe('0'.repeat(64));
+    expect(entry1.hash).toMatch(/^[0-9a-f]{64}$/);
+
+    // 4. Jalankan verifikasi integritas rantai non-kosong via LedgerService
+    const verification = await LedgerService.verifyCampaignLedger(testCampaignId, testPrisma);
+
+    // Bukti bahwa rantai berisi entri nyata dinyatakan VALID secara matematis
+    expect(verification.isValid).toBe(true);
+    expect(verification.totalEntries).toBe(1);
+    expect(verification.totalEntries).toBeGreaterThan(0);
+    expect(verification.lastHash).toBe(entry1.hash);
+    expect(verification.corruptEntrySeq).toBeUndefined();
+    expect(verification.errorReason).toBeUndefined();
   });
 });
