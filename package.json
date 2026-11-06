@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "create-admin": "tsx scripts/create-admin.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:backup-restore": "tsx scripts/test-backup-restore.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
