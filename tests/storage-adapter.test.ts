@@ -111,4 +111,27 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     const storage = getProofStorage();
     expect(storage).toBeInstanceOf(LocalDiskStorage);
   });
+
+  it('7. getProofStorage() mengabaikan E2E_TEST jika berada di lingkungan Vercel (Aturan 5B T)', () => {
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      STORAGE_PROVIDER: 'local',
+      E2E_TEST: 'true',
+      VERCEL: '1',
+    });
+
+    expect(() => getProofStorage()).toThrow('STORAGE_PROVIDER=local dilarang di lingkungan production');
+  });
+
+  it('8. getProofStorage() mengizinkan E2E_TEST hanya di luar Vercel (misal local e2e runner)', () => {
+    delete process.env.VERCEL;
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      STORAGE_PROVIDER: 'local',
+      E2E_TEST: 'true',
+    });
+
+    const storage = getProofStorage();
+    expect(storage).toBeInstanceOf(LocalDiskStorage);
+  });
 });

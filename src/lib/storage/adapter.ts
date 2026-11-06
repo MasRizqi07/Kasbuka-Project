@@ -114,7 +114,10 @@ export class SupabaseStorageAdapter implements ProofStorage {
  */
 export function getProofStorage(): ProofStorage {
   const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
-  const isProd = process.env.NODE_ENV === 'production' && process.env.E2E_TEST !== 'true';
+  // Abaikan E2E_TEST jika lingkungan Vercel terdeteksi (Aturan 5B T)
+  const isVercel = Boolean(process.env.VERCEL);
+  const allowE2EBypass = process.env.E2E_TEST === 'true' && !isVercel;
+  const isProd = process.env.NODE_ENV === 'production' && !allowE2EBypass;
 
   if (provider === 'local') {
     if (isProd) {
