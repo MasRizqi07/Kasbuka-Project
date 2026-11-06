@@ -31,11 +31,11 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     vi.resetAllMocks();
   });
 
-  it('1. save() mengunggah buffer ke endpoint Supabase Storage REST dengan service-role key', async () => {
+  it('1. save() mengunggah buffer ke endpoint Supabase Storage REST dengan kunci hash murni tanpa ekstensi (Aturan 5B V)', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ Key: 'kasbuka-proofs/abc123hash.png' }),
+      json: async () => ({ Key: 'kasbuka-proofs/abc123hash' }),
     });
 
     const adapter = new SupabaseStorageAdapter();
@@ -45,7 +45,7 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     const [calledUrl, calledOptions] = mockFetch.mock.calls[0];
-    expect(calledUrl).toBe('https://mock-project.supabase.co/storage/v1/object/kasbuka-proofs/abc123hash.png');
+    expect(calledUrl).toBe('https://mock-project.supabase.co/storage/v1/object/kasbuka-proofs/abc123hash');
     expect(calledOptions.method).toBe('POST');
     expect(calledOptions.headers).toMatchObject({
       Authorization: 'Bearer secret-service-role-key-xyz',
@@ -54,7 +54,7 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     });
   });
 
-  it('2. get() berhasil mengunduh file dan memvalidasi magic bytes saat status 200', async () => {
+  it('2. get() berhasil mengunduh file dalam satu HTTP request dan memvalidasi magic bytes saat status 200 (Aturan 5B V)', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -72,16 +72,16 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     expect(file?.mimeType).toBe('image/png');
     expect(file?.buffer).toBeDefined();
 
+    expect(mockFetch).toHaveBeenCalledTimes(1);
     const [calledUrl, calledOptions] = mockFetch.mock.calls[0];
-    expect(calledUrl).toBe('https://mock-project.supabase.co/storage/v1/object/authenticated/kasbuka-proofs/abc123hash.jpg');
+    expect(calledUrl).toBe('https://mock-project.supabase.co/storage/v1/object/authenticated/kasbuka-proofs/abc123hash');
     expect(calledOptions.headers).toMatchObject({
       Authorization: 'Bearer secret-service-role-key-xyz',
     });
   });
 
-  it('3. get() mengembalikan null saat objek tidak ditemukan (404) untuk semua kemungkinan ekstensi', async () => {
-    // 4 kali panggil untuk jpg, png, webp, jpeg -> semua 404
-    mockFetch.mockResolvedValue({
+  it('3. get() mengembalikan null tepat dalam satu HTTP request saat objek tidak ditemukan (404) (Aturan 5B V)', async () => {
+    mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 404,
       statusText: 'Not Found',
@@ -91,7 +91,8 @@ describe('Supabase Storage Adapter (Aturan 8.5 L)', () => {
     const file = await adapter.get('notfoundhash');
 
     expect(file).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(4);
+    // Tepat 1 kali panggilan tanpa menebak-nebak ekstensi (Aturan 5B V)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('4. getProofStorage() melempar error keras jika STORAGE_PROVIDER=local di lingkungan production', () => {

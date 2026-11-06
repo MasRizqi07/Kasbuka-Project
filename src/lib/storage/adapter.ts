@@ -11,26 +11,38 @@ export interface ProofStorage {
  * Adapter Filesystem Lokal (hanya untuk development & testing lokal)
  */
 export class LocalDiskStorage implements ProofStorage {
-  async save(buffer: Buffer, hash: string, extension: string): Promise<string> {
+  async save(buffer: Buffer, hash: string, _extension: string): Promise<string> {
     const dir = path.join(process.cwd(), 'public', 'uploads', 'proofs');
     await fs.mkdir(dir, { recursive: true });
-    const fullPath = path.join(process.cwd(), 'public', 'uploads', 'proofs', `${hash}.${extension}`);
+    // Simpan kunci sebagai hash langsung tanpa ekstensi (Aturan 5B V)
+    const fullPath = path.join(process.cwd(), 'public', 'uploads', 'proofs', hash);
     await fs.writeFile(fullPath, buffer);
     return `/api/proof/${hash}`;
   }
 
   async get(hash: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    // 1. Coba file tanpa ekstensi langsung (pola hash tunggal Aturan 5B V)
+    const directPath = path.join(process.cwd(), 'public', 'uploads', 'proofs', hash);
+    try {
+      const fileBuffer = await fs.readFile(directPath);
+      const validation = validateProofMagicBytes(fileBuffer);
+      if (validation.isValid && validation.mimeType) {
+        return { buffer: fileBuffer, mimeType: validation.mimeType };
+      }
+    } catch {
+      // Fallback ke ekstensi jika ada file lama
+    }
+
     for (const ext of ['jpg', 'png', 'webp', 'jpeg']) {
       const candidate = path.join(process.cwd(), 'public', 'uploads', 'proofs', `${hash}.${ext}`);
       try {
-        await fs.access(candidate);
         const fileBuffer = await fs.readFile(candidate);
         const validation = validateProofMagicBytes(fileBuffer);
         if (validation.isValid && validation.mimeType) {
           return { buffer: fileBuffer, mimeType: validation.mimeType };
         }
       } catch {
-        // Coba ekstensi lain
+        // Lanjut ke ekstensi berikutnya
       }
     }
     return null;
@@ -39,7 +51,7 @@ export class LocalDiskStorage implements ProofStorage {
 
 /**
  * Adapter Supabase Storage (REST API bawaan fetch dengan service-role key — hanya di sisi server)
- * Sesuai Aturan 8.5 L: Satu implementasi object storage standar tanpa SDK berat.
+ * Sesuai Aturan 8.5 L & 5B V: Satu permintaan HTTP langsung ke kunci hash tunggal tanpa ekstensi.
  */
 export class SupabaseStorageAdapter implements ProofStorage {
   private endpoint: string;
@@ -58,8 +70,9 @@ export class SupabaseStorageAdapter implements ProofStorage {
     }
   }
 
-  async save(buffer: Buffer, hash: string, extension: string, mimeType: string): Promise<string> {
-    const objectKey = `${hash}.${extension}`;
+  async save(buffer: Buffer, hash: string, _extension: string, mimeType: string): Promise<string> {
+    // Simpan objek dengan kunci hash murni tanpa ekstensi (Aturan 5B V)
+    const objectKey = hash;
     const url = `${this.endpoint}/storage/v1/object/${this.bucket}/${objectKey}`;
 
     const res = await fetch(url, {
@@ -81,30 +94,31 @@ export class SupabaseStorageAdapter implements ProofStorage {
   }
 
   async get(hash: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
-    for (const ext of ['jpg', 'png', 'webp', 'jpeg']) {
-      const objectKey = `${hash}.${ext}`;
-      const url = `${this.endpoint}/storage/v1/object/authenticated/${this.bucket}/${objectKey}`;
+    // Satu permintaan HTTP langsung ke authenticated object key (Aturan 5B V)
+    const objectKey = hash;
+    const url = `${this.endpoint}/storage/v1/object/authenticated/${this.bucket}/${objectKey}`;
 
-      try {
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${this.serviceRoleKey}`,
-          },
-        });
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.serviceRoleKey}`,
+        },
+      });
 
-        if (res.ok) {
-          const arrayBuf = await res.arrayBuffer();
-          const fileBuffer = Buffer.from(arrayBuf);
-          const validation = validateProofMagicBytes(fileBuffer);
-          if (validation.isValid && validation.mimeType) {
-            return { buffer: fileBuffer, mimeType: validation.mimeType };
-          }
-        }
-      } catch {
-        // Coba ekstensi lain jika kandidat ini gagal
+      if (!res.ok) {
+        return null;
       }
+
+      const arrayBuf = await res.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuf);
+      const validation = validateProofMagicBytes(fileBuffer);
+      if (validation.isValid && validation.mimeType) {
+        return { buffer: fileBuffer, mimeType: validation.mimeType };
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
   }
 }
 
