@@ -107,6 +107,8 @@ model Donation {
   message       String?
   ledgerEntry   LedgerEntry?
   createdAt     DateTime       @default(now())
+
+  @@index([campaignId, status])
 }
 
 model LedgerEntry {
@@ -140,6 +142,7 @@ model LedgerEntry {
 
   @@unique([campaignId, seq])
   @@unique([campaignId, reversesEntryId])
+  @@index([campaignId, type])
 }
 
 model WebhookEvent {
