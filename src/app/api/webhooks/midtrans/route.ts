@@ -191,8 +191,9 @@ export async function POST(request: Request) {
 
   try {
     const outcome = await withSeqRetry(async () => {
-      return await prisma.$transaction(async (tx) => {
-        // Update bersyarat: hanya baris yang masih PENDING yang diubah
+      return await prisma.$transaction(
+        async (tx) => {
+          // Update bersyarat: hanya baris yang masih PENDING yang diubah
         const updateResult = await tx.donation.updateMany({
           where: { orderId, status: 'PENDING' },
           data: {
@@ -266,6 +267,10 @@ export async function POST(request: Request) {
         });
 
         return { status: 200, result: 'PROCESSED' };
+      },
+      {
+        maxWait: 5000,
+        timeout: 10000,
       });
     });
 

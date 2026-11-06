@@ -329,10 +329,14 @@ export class LedgerService {
       return await appendEntryCore(tx, params);
     }
 
-    // Kalau tx tidak diberikan, jalankan dalam prisma.$transaction dengan helper withSeqRetry
+    // Kalau tx tidak diberikan, jalankan dalam prisma.$transaction dengan timeout eksplisit (Aturan 5B U)
     const execute = () =>
       withSeqRetry(
-        () => prisma.$transaction((t) => appendEntryCore(t, params)),
+        () =>
+          prisma.$transaction((t) => appendEntryCore(t, params), {
+            maxWait: 5000,
+            timeout: 10000,
+          }),
         params.maxRetries ?? 5
       );
 
