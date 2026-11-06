@@ -725,4 +725,70 @@ describe('Postgres Live Integration Test (kasbuka_test): Fase 4 Midtrans & Webho
     expect(event).not.toBeNull();
     expect(event?.result).toBe('ANOMALY');
   });
+
+  // UJI 15: Signature salah melebihi batas rate limit membalas 429 tanpa query Donation / WebhookEvent baru (Aturan 5B Q)
+  it('Uji 15: Webhook signature salah melebihi rate limit membalas 429 tanpa menyentuh Donation atau membuat WebhookEvent baru', async () => {
+    const orderId = `KSB-RATELIMIT-SIG-${Date.now()}`;
+    await testPrisma.donation.create({
+      data: {
+        campaignId: testCampaignId,
+        orderId,
+        amount: 50000n,
+        status: 'PENDING',
+      },
+    });
+
+    const testIp = '198.51.100.99';
+    const fakePayload = {
+      order_id: orderId,
+      status_code: '200',
+      gross_amount: '50000.00',
+      signature_key: '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      transaction_status: 'settlement',
+    };
+
+    // Kirim 20 request sampai limit habis (limit = 20)
+    for (let i = 0; i < 20; i++) {
+      const req = new Request('http://localhost:3000/api/webhooks/midtrans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': testIp,
+        },
+        body: JSON.stringify(fakePayload),
+      });
+      const res = await handleMidtransWebhook(req);
+      expect(res.status).toBe(401);
+    }
+
+    const eventsCountBefore = await testPrisma.webhookEvent.count({ where: { orderId } });
+    expect(eventsCountBefore).toBe(20);
+
+    // Spy pada prisma.donation.findUnique untuk memastikan tidak tersentuh saat 429
+    const findUniqueSpy = vi.spyOn(testPrisma.donation, 'findUnique');
+
+    // Request ke-21 harus ditolak dengan 429
+    const req21 = new Request('http://localhost:3000/api/webhooks/midtrans', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': testIp,
+      },
+      body: JSON.stringify(fakePayload),
+    });
+    const res21 = await handleMidtransWebhook(req21);
+
+    expect(res21.status).toBe(429);
+    const data21 = await res21.json();
+    expect(data21.error).toContain('Terlalu banyak percobaan');
+
+    // Pastikan prisma.donation.findUnique tidak dipanggil pada request ke-21
+    expect(findUniqueSpy).not.toHaveBeenCalled();
+
+    // Pastikan tidak ada baris WebhookEvent baru yang ditambahkan
+    const eventsCountAfter = await testPrisma.webhookEvent.count({ where: { orderId } });
+    expect(eventsCountAfter).toBe(20);
+
+    findUniqueSpy.mockRestore();
+  });
 });

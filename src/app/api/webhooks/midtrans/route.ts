@@ -56,13 +56,20 @@ export async function POST(request: Request) {
   });
 
   if (!isSignatureValid) {
-    // 1. Batasi percobaan webhook signature salah per IP (Aturan 8.2 D)
+    // 1. Batasi percobaan webhook signature salah per IP (Aturan 8.2 D & 5B Q)
     const clientIp = getClientIp(request);
-    await checkRateLimit({
+    const rateLimit = await checkRateLimit({
       key: `webhook:invalid-sig:${clientIp}`,
       limit: 20,
       windowMs: 60 * 1000,
     });
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Terlalu banyak percobaan dengan signature tidak valid. Silakan coba lagi nanti.' },
+        { status: 429 }
+      );
+    }
 
     // 2. Hanya catat WebhookEvent jika orderId-nya benar-benar ada di tabel Donation (Aturan 8.2 D)
     if (orderId) {
