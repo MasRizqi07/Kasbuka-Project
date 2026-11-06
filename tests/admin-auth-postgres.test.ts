@@ -294,4 +294,44 @@ describe('Postgres Live Integration Test (kasbuka_test): Autentikasi Pengurus (A
 
     spyBcryptCompare.mockRestore();
   });
+
+  it('8. Waktu respons antara email tidak ada dan password salah sebanding (mitigasi timing attack - Aturan 5B R)', async () => {
+    // Ukur durasi untuk email yang ada tapi password salah
+    const t0Wrong = performance.now();
+    const resWrong = await handleLogin(new Request('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '192.168.1.181',
+      },
+      body: JSON.stringify({
+        email: userEmail,
+        password: 'PasswordSalah999!',
+      }),
+    }));
+    const durationWrong = performance.now() - t0Wrong;
+    expect(resWrong.status).toBe(401);
+
+    // Ukur durasi untuk email yang tidak ada di database sama sekali
+    const t0NotFound = performance.now();
+    const resNotFound = await handleLogin(new Request('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '192.168.1.182',
+      },
+      body: JSON.stringify({
+        email: 'user.pasti.tidak.ada@kasbuka.org',
+        password: 'PasswordSalah999!',
+      }),
+    }));
+    const durationNotFound = performance.now() - t0NotFound;
+    expect(resNotFound.status).toBe(401);
+
+    // Keduanya menjalankan 1x bcrypt compare (cost 10) + DB query
+    // Rasio kasar tidak boleh terpaut ekstrem (misal 1ms vs 80ms jika dummy hash absen)
+    const ratio = durationNotFound / durationWrong;
+    expect(ratio).toBeGreaterThan(0.2);
+    expect(ratio).toBeLessThan(5.0);
+  });
 });

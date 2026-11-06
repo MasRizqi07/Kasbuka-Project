@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -11,8 +12,8 @@ const LoginSchema = z.object({
   password: z.string().min(1, 'Password wajib diisi.'),
 });
 
-// Pre-computed valid bcrypt hash untuk memitigasi timing attack saat user tidak ditemukan (Aturan 8.2 C)
-const DUMMY_BCRYPT_HASH = '$2a$10$wT8m9gU.6J8lT3wB4uM8ueV7gO3zM8m9gU.6J8lT3wB4uM8ueV7gO';
+// Computed saat modul dimuat via bcrypt.hashSync('dummy', 10) (Aturan 5B R)
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync('dummy', 10);
 
 export async function POST(request: Request) {
   // 1. Rate Limiter per IP (PRD 4.6 & Aturan 8.2 C: batas 5 per menit per IP)
