@@ -38,22 +38,37 @@ export async function GET(
       }
     }
 
-    // 3. Ambil seluruh entri untuk kalkulasi saldo akurat
-    const allEntries = await prisma.ledgerEntry.findMany({
+    // 3. Ambil proyeksi minimal untuk kalkulasi saldo cepat (Tahap C: Backend Optimization)
+    const balanceEntries = await prisma.ledgerEntry.findMany({
       where: { campaignId: campaign.id },
+      select: {
+        id: true,
+        seq: true,
+        type: true,
+        amount: true,
+        fee: true,
+        reversesEntryId: true,
+        hash: true,
+      },
       orderBy: { seq: 'asc' },
     });
 
-    const financial = calculateLedgerBalance(
-      allEntries.map((e) => ({
-        id: e.id,
-        seq: e.seq,
-        type: e.type,
-        amount: e.amount,
-        fee: e.fee,
-        reversesEntryId: e.reversesEntryId,
-      }))
-    );
+    const totalCount = balanceEntries.length;
+    const latestEntry = totalCount > 0 ? balanceEntries[totalCount - 1] : null;
+    const etag = latestEntry ? `"${latestEntry.hash}"` : '"empty-ledger"';
+
+    // Dukungan ETag untuk menghemat bandwidth (304 Not Modified)
+    if (req.headers.get('if-none-match') === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
+        },
+      });
+    }
+
+    const financial = calculateLedgerBalance(balanceEntries);
 
     // 4. Cursor Pagination untuk daftar buku kas (50 entri per halaman, seq menurun)
     const paginatedRaw = await prisma.ledgerEntry.findMany({
@@ -114,7 +129,7 @@ export async function GET(
           totalMasuk: financial.totalMasukBersih.toString(),
           totalKeluar: financial.totalKeluar.toString(),
           saldo: financial.saldo.toString(),
-          totalEntries: allEntries.length,
+          totalEntries: totalCount,
         },
         pagination: {
           limit,
@@ -122,6 +137,12 @@ export async function GET(
           nextCursor,
         },
         entries: sanitizedEntries,
+      },
+    },
+    {
+      headers: {
+        ETag: etag,
+        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
       },
     });
   } catch (err: unknown) {
