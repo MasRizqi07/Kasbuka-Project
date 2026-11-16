@@ -43,8 +43,8 @@ export default function HomePage() {
               <span className="tabular-angka">Saldo Contoh Rp 7.955.050</span>
             </div>
             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Baris IN Contoh */}
-              <div style={{ padding: '10px 0', borderBottom: '1px solid var(--garis)', display: 'flex', gap: '12px', fontSize: '14px', background: 'var(--blok)' }}>
+              {/* Baris IN Contoh (Design.md 4.4 Gerak 1: ditulis huruf demi huruf) */}
+              <div className="hero-ledger-written" style={{ padding: '10px 0', borderBottom: '1px solid var(--garis)', display: 'flex', gap: '12px', fontSize: '14px', background: 'var(--blok)' }}>
                 <div style={{ width: '48px', color: 'var(--tinta-redup)', fontSize: '13px', borderRight: '2px solid var(--garis-tegas)', paddingRight: '6px', flexShrink: 0 }}>
                   <div style={{ fontWeight: 700, color: 'var(--tinta)' }}>#12</div>
                   <div>27 Okt</div>

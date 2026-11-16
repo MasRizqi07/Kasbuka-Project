@@ -66,12 +66,32 @@ export const HashAnchor: React.FC<Props> = ({ slug, lastHash, lastEntryDate, tot
             className="btn btn-sm"
             style={{ background: 'var(--tinta)', color: '#fff', padding: '4px 12px', fontSize: '13px' }}
           >
-            {loading ? 'Memeriksa…' : 'Periksa keutuhan'}
+            {loading ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Memeriksa…
+              </>
+            ) : (
+              'Periksa keutuhan'
+            )}
           </button>
         </div>
       </div>
       {res && (
-        <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '6px', background: res.isValid ? 'var(--blok)' : '#FDF0ED', border: res.isValid ? '1px solid var(--garis)' : '1px solid var(--keluar)', fontSize: '13.5px', color: 'var(--tinta)' }}>
+        <div
+          className={res.isValid ? 'verify-result-valid' : ''}
+          role="status"
+          aria-live="polite"
+          style={{
+            marginTop: '12px',
+            padding: '10px 14px',
+            borderRadius: '6px',
+            background: res.isValid ? 'var(--blok)' : '#FDF0ED',
+            border: res.isValid ? '1px solid var(--garis)' : '1px solid var(--keluar)',
+            fontSize: '13.5px',
+            color: 'var(--tinta)',
+          }}
+        >
           <strong>{res.isValid ? 'Rantai valid' : `Rantai terputus di entri #${res.corruptEntrySeq ?? res.brokenAtSeq ?? '?'}`}</strong>
           {res.isValid && <span> ({res.totalEntries} entri, hash {res.lastHash?.slice(0, 12)}…).</span>}
           <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--tinta-redup)' }}>

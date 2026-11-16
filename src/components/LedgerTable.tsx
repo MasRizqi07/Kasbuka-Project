@@ -105,120 +105,268 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
         </span>
       </div>
 
-      {/* Tampilan Desktop: Tabel 6 Kolom */}
-      <div style={{ overflowX: 'auto', width: '100%' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ backgroundColor: 'var(--kertas)', borderBottom: '1.5px solid var(--garis-tegas)' }}>
-              <th style={{ width: '60px', padding: '12px 16px', color: 'var(--tinta-redup)', borderRight: '2px solid var(--garis-tegas)' }}>No</th>
-              <th style={{ width: '105px', padding: '12px 16px', color: 'var(--tinta-redup)' }}>Tanggal</th>
-              <th style={{ padding: '12px 16px', color: 'var(--tinta-redup)' }}>Keterangan</th>
-              <th style={{ width: '130px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Masuk</th>
-              <th style={{ width: '130px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Keluar</th>
-              <th style={{ width: '140px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Hash</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => {
+      {/* Tampilan Desktop & Mobile: Tabel 6 Kolom atau Pesan Kosong */}
+      {entries.length === 0 ? (
+        <div
+          style={{
+            padding: '48px 24px',
+            textAlign: 'center',
+            color: 'var(--tinta-redup)',
+            fontSize: '15.5px',
+            lineHeight: 1.5,
+          }}
+        >
+          Buku kas masih kosong. Entri pertama muncul setelah ada uang masuk.
+        </div>
+      ) : (
+        <>
+          {/* Tampilan Desktop: Tabel 6 Kolom (Design.md 5) */}
+          <div className="hide-on-mobile" style={{ overflowX: 'auto', width: '100%' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ backgroundColor: 'var(--kertas)', borderBottom: '1.5px solid var(--garis-tegas)' }}>
+                  <th style={{ width: '60px', padding: '12px 16px', color: 'var(--tinta-redup)', borderRight: '2px solid var(--garis-tegas)' }}>No</th>
+                  <th style={{ width: '105px', padding: '12px 16px', color: 'var(--tinta-redup)' }}>Tanggal</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--tinta-redup)' }}>Keterangan</th>
+                  <th style={{ width: '130px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Masuk</th>
+                  <th style={{ width: '130px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Keluar</th>
+                  <th style={{ width: '140px', padding: '12px 16px', color: 'var(--tinta-redup)', textAlign: 'right' }}>Hash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry, idx) => {
+                  const isReversed = entry.isReversed;
+                  const dateText = formatDateShort(entry.occurredAt);
+
+                  let masukCol = '—';
+                  let keluarCol = '—';
+
+                  if (entry.type === 'IN') {
+                    masukCol = `+ ${formatRupiahDisplay(entry.amount).replace('Rp ', '')}`;
+                  } else if (entry.type === 'OUT') {
+                    keluarCol = `− ${formatRupiahDisplay(entry.amount).replace('Rp ', '')}`;
+                  } else if (entry.type === 'REVERSAL') {
+                    keluarCol = 'Koreksi';
+                  }
+
+                  return (
+                    <tr
+                      key={entry.id}
+                      id={`desktop-row-${entry.seq}`}
+                      style={{
+                        borderBottom: '1px solid var(--garis)',
+                        backgroundColor: idx % 2 === 1 ? 'rgba(230, 238, 232, 0.45)' : 'var(--putih)',
+                        transition: 'background-color 0.1s ease',
+                      }}
+                    >
+                      <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--tinta-redup)', borderRight: '2px solid var(--garis-tegas)', whiteSpace: 'nowrap' }}>
+                        #{entry.seq}
+                      </td>
+                      <td style={{ padding: '14px 16px', color: 'var(--tinta-redup)', whiteSpace: 'nowrap' }}>
+                        {dateText}
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ fontWeight: 500, color: 'var(--tinta)', textDecoration: isReversed ? 'line-through' : 'none' }}>
+                          {entry.description || (entry.type === 'IN' ? `Donasi dari ${entry.donorName}` : 'Pengeluaran')}
+                        </div>
+
+                        {entry.message && (
+                          <div
+                            style={{
+                              fontFamily: 'var(--font-tangan)',
+                              fontSize: '18px',
+                              color: 'var(--tinta)',
+                              marginTop: '6px',
+                              paddingLeft: '16px',
+                              borderLeft: '2px solid var(--garis-tegas)',
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            &ldquo;{entry.message}&rdquo;
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {isReversed ? (
+                            <span className="status-pill pill-reversal">
+                              {entry.reversedBySeq ? `Dibatalkan oleh #${entry.reversedBySeq}` : 'Dibatalkan'}
+                            </span>
+                          ) : entry.source === 'MIDTRANS' ? (
+                            <span className="status-pill pill-midtrans">Dibayar lewat Midtrans</span>
+                          ) : (
+                            <span className="status-pill pill-pengurus">Dicatat pengurus</span>
+                          )}
+
+                          {entry.proofUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleViewProof(entry.seq, `Bukti Nota #${entry.seq}`, entry.description || '', entry.proofUrl)}
+                              style={{ fontSize: '13px', fontWeight: 700, color: 'var(--tinta)', textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                              Lihat bukti
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className="tabular-angka"
+                        style={{
+                          padding: '14px 16px',
+                          textAlign: 'right',
+                          fontWeight: 700,
+                          color: isReversed ? 'var(--tinta-redup)' : 'var(--masuk)',
+                          textDecoration: isReversed ? 'line-through' : 'none',
+                        }}
+                      >
+                        {masukCol}
+                      </td>
+                      <td
+                        className="tabular-angka"
+                        style={{
+                          padding: '14px 16px',
+                          textAlign: 'right',
+                          fontWeight: 700,
+                          color: isReversed ? 'var(--tinta-redup)' : 'var(--keluar)',
+                          textDecoration: isReversed ? 'line-through' : 'none',
+                        }}
+                      >
+                        {keluarCol}
+                      </td>
+                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyHash(entry.hash)}
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--tinta-redup)',
+                            padding: '2px 6px',
+                            background: 'var(--kertas)',
+                            border: '1px solid var(--garis)',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                          title={`Salin hash: ${entry.hash}`}
+                        >
+                          {copiedHash === entry.hash ? 'Tersalin!' : `${entry.hash.substring(0, 8)}… 📋`}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tampilan Mobile: Baris Bergaris Dua Tingkat (Design.md 5 & 6.3) */}
+          <ol
+            className="show-on-mobile"
+            style={{ listStyle: 'none', margin: 0, padding: 0 }}
+            aria-label="Daftar Entri Buku Kas"
+          >
+            {entries.map((entry, idx) => {
               const isReversed = entry.isReversed;
               const dateText = formatDateShort(entry.occurredAt);
 
-              let masukCol = '—';
-              let keluarCol = '—';
+              let nominalDisplay = '—';
+              let isMasuk = false;
 
               if (entry.type === 'IN') {
-                masukCol = `+ ${formatRupiahDisplay(entry.amount).replace('Rp ', '')}`;
+                nominalDisplay = `+ ${formatRupiahDisplay(entry.amount)}`;
+                isMasuk = true;
               } else if (entry.type === 'OUT') {
-                keluarCol = `− ${formatRupiahDisplay(entry.amount).replace('Rp ', '')}`;
+                nominalDisplay = `− ${formatRupiahDisplay(entry.amount)}`;
               } else if (entry.type === 'REVERSAL') {
-                keluarCol = 'Koreksi';
+                nominalDisplay = 'Koreksi';
               }
 
               return (
-                <tr
+                <li
                   key={entry.id}
-                  id={`desktop-row-${entry.seq}`}
-                  style={{ borderBottom: '1px solid var(--garis)' }}
+                  id={`mobile-row-${entry.seq}`}
+                  style={{
+                    padding: '14px 16px',
+                    borderBottom: '1px solid var(--garis)',
+                    backgroundColor: idx % 2 === 1 ? 'rgba(230, 238, 232, 0.45)' : 'var(--putih)',
+                  }}
+                  aria-label={`Entri #${entry.seq}: ${nominalDisplay}, ${entry.description || entry.donorName || ''}`}
                 >
-                  <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--tinta-redup)', borderRight: '2px solid var(--garis-tegas)', whiteSpace: 'nowrap' }}>
-                    #{entry.seq}
-                  </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--tinta-redup)', whiteSpace: 'nowrap' }}>
-                    {dateText}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontWeight: 500, color: 'var(--tinta)', textDecoration: isReversed ? 'line-through' : 'none' }}>
-                      {entry.description || (entry.type === 'IN' ? `Donasi dari ${entry.donorName}` : 'Pengeluaran')}
+                  {/* Tingkat 1: #seq + keterangan di kiri, nominal di kanan */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--tinta-redup)', marginRight: '6px' }}>
+                        #{entry.seq}
+                      </span>
+                      <strong style={{ color: 'var(--tinta)', textDecoration: isReversed ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+                        {entry.description || (entry.type === 'IN' ? `Donasi dari ${entry.donorName}` : 'Pengeluaran')}
+                      </strong>
                     </div>
+                    <div
+                      className="tabular-angka"
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '15.5px',
+                        whiteSpace: 'nowrap',
+                        color: isReversed ? 'var(--tinta-redup)' : isMasuk ? 'var(--masuk)' : 'var(--keluar)',
+                        textDecoration: isReversed ? 'line-through' : 'none',
+                        textAlign: 'right',
+                      }}
+                    >
+                      {nominalDisplay}
+                    </div>
+                  </div>
 
-                    {entry.message && (
-                      <div
-                        style={{
-                          fontFamily: 'var(--font-tangan)',
-                          fontSize: '18px',
-                          color: 'var(--tinta)',
-                          marginTop: '6px',
-                          paddingLeft: '16px',
-                          borderLeft: '2px solid var(--garis-tegas)',
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        &ldquo;{entry.message}&rdquo;
-                      </div>
-                    )}
+                  {/* Doa / Pesan jika ada */}
+                  {entry.message && (
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-tangan)',
+                        fontSize: '16.5px',
+                        color: 'var(--tinta)',
+                        marginTop: '6px',
+                        marginBottom: '6px',
+                        paddingLeft: '12px',
+                        borderLeft: '2px solid var(--garis-tegas)',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      &ldquo;{entry.message}&rdquo;
+                    </div>
+                  )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  {/* Tingkat 2: tanggal, pill status, lihat bukti, dan salin hash */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--tinta-redup)' }}>{dateText}</span>
                       {isReversed ? (
-                        <span className="status-pill pill-reversal">
-                          {entry.reversedBySeq ? `Dibatalkan oleh #${entry.reversedBySeq}` : 'Dibatalkan'}
+                        <span className="status-pill pill-reversal" style={{ fontSize: '11.5px', height: '22px' }}>
+                          {entry.reversedBySeq ? `Batal oleh #${entry.reversedBySeq}` : 'Dibatalkan'}
                         </span>
                       ) : entry.source === 'MIDTRANS' ? (
-                        <span className="status-pill pill-midtrans">Dibayar lewat Midtrans</span>
+                        <span className="status-pill pill-midtrans" style={{ fontSize: '11.5px', height: '22px' }}>
+                          Midtrans
+                        </span>
                       ) : (
-                        <span className="status-pill pill-pengurus">Dicatat pengurus</span>
+                        <span className="status-pill pill-pengurus" style={{ fontSize: '11.5px', height: '22px' }}>
+                          Pengurus
+                        </span>
                       )}
 
                       {entry.proofUrl && (
                         <button
                           type="button"
                           onClick={() => handleViewProof(entry.seq, `Bukti Nota #${entry.seq}`, entry.description || '', entry.proofUrl)}
-                          style={{ fontSize: '13px', fontWeight: 700, color: 'var(--tinta)', textDecoration: 'underline', cursor: 'pointer' }}
+                          style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--tinta)', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
                         >
                           Lihat bukti
                         </button>
                       )}
                     </div>
-                  </td>
-                  <td
-                    className="tabular-angka"
-                    style={{
-                      padding: '14px 16px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: isReversed ? 'var(--tinta-redup)' : 'var(--masuk)',
-                      textDecoration: isReversed ? 'line-through' : 'none',
-                    }}
-                  >
-                    {masukCol}
-                  </td>
-                  <td
-                    className="tabular-angka"
-                    style={{
-                      padding: '14px 16px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: isReversed ? 'var(--tinta-redup)' : 'var(--keluar)',
-                      textDecoration: isReversed ? 'line-through' : 'none',
-                    }}
-                  >
-                    {keluarCol}
-                  </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+
                     <button
                       type="button"
                       onClick={() => handleCopyHash(entry.hash)}
                       style={{
-                        fontSize: '12px',
+                        fontSize: '11.5px',
                         color: 'var(--tinta-redup)',
                         padding: '2px 6px',
                         background: 'var(--kertas)',
@@ -230,13 +378,13 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                     >
                       {copiedHash === entry.hash ? 'Tersalin!' : `${entry.hash.substring(0, 8)}… 📋`}
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </li>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </ol>
+        </>
+      )}
 
       {/* Kontrol Muat Lebih Banyak (Cursor Pagination - US-1) */}
       {hasMore && (

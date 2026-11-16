@@ -38,3 +38,6 @@ Thumbs.db
 # Project Work Tracking
 .project-work/
 
+# Local uploads
+public/uploads/
+
