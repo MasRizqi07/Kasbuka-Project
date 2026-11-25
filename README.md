@@ -168,8 +168,16 @@ Untuk melakukan verifikasi staging di platform Vercel / Cloudflare Pages:
    - Dapatkan `DIRECT_URL` (koneksi langsung ke PostgreSQL port 5432 untuk migrasi DDL).
 
 2. **Jalankan Migrasi Database Staging:**
+   Pada **Windows PowerShell** (hapus variabel sesi setelah selesai):
+   ```powershell
+   $env:DATABASE_URL = "<STAGING_POOLER_URL>"
+   $env:DIRECT_URL = "<STAGING_DIRECT_URL>"
+   npx prisma migrate deploy
+   Remove-Item Env:DATABASE_URL, Env:DIRECT_URL
+   ```
+   Pada **Linux / macOS (bash/zsh)**:
    ```bash
-   DATABASE_URL="<STAGING_DATABASE_URL>" DIRECT_URL="<STAGING_DIRECT_URL>" npx prisma migrate deploy
+   DATABASE_URL="<STAGING_POOLER_URL>" DIRECT_URL="<STAGING_DIRECT_URL>" npx prisma migrate deploy
    ```
 
 3. **Verifikasi Trigger Append-Only Aktif:**
@@ -214,30 +222,66 @@ TRUNCATE TABLE "LedgerEntry", "Donation", "WebhookEvent", "RateLimit" CASCADE;
 TRUNCATE TABLE "LedgerEntry", "Donation", "WebhookEvent", "RateLimit", "Session", "Campaign", "User", "Organization" CASCADE;
 ```
 
-### 2. Penyiapan Basis Data Production Terpisah
-Production **tidak boleh** berbagi database dengan Staging. Langkah penyiapan Production:
+### 2. Penyiapan Basis Data & Environment Production Terpisah
+Production **tidak boleh** berbagi database, secret, atau bucket penyimpanan dengan Staging. Langkah penyiapan Production:
+
 1. **Buat Proyek Database Supabase Baru:**
-   - Buat proyek khusus `kasbuka-prod` di region yang sama dengan serverless runtime (misal `ap-south-1` Mumbai).
-   - Pastikan backup otomatis diaktifkan di dashboard Supabase.
+   - Buat proyek khusus production (misal `kasbuka-prod`) di region yang dekat dengan serverless Vercel (`ap-south-1` Mumbai / `bom1`).
+   - Pastikan backup otomatis aktif di dashboard Supabase (atau jadwalkan backup `pg_dump` berkala).
 2. **Jalankan Migrasi DDL Fisik ke Production:**
+   Pada **Windows PowerShell**:
+   ```powershell
+   $env:DATABASE_URL = "<PROD_DATABASE_POOLER_URL>"
+   $env:DIRECT_URL = "<PROD_DATABASE_DIRECT_URL>"
+   npx prisma migrate deploy
+   Remove-Item Env:DATABASE_URL, Env:DIRECT_URL
+   ```
+   Pada **Linux / macOS (bash/zsh)**:
    ```bash
    DATABASE_URL="<PROD_DATABASE_POOLER_URL>" DIRECT_URL="<PROD_DATABASE_DIRECT_URL>" npx prisma migrate deploy
    ```
 3. **Verifikasi Keamanan Basis Data:**
    - Pastikan trigger append-only aktif: `SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = 'trg_ledger_entry_append_only';` (`tgenabled = 'O'`).
-   - Pastikan RLS aktif di seluruh 8 tabel: `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';` (`rowsecurity = true`).
-4. **Buat Akun Pengurus Pilot Pertama:**
-   Jalankan script CLI dengan input password tersembunyi (raw mode muted):
-   ```bash
-   DATABASE_URL="<PROD_DATABASE_DIRECT_URL>" ADMIN_EMAIL="pengurus@pilot.org" ADMIN_ORG="Organisasi Pilot" npm run create-admin
+   - Pastikan RLS aktif di seluruh 8 tabel aplikasi: `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;` (`rowsecurity = true`).
+   - Periksa **Security Advisor** di dashboard Supabase untuk memastikan tidak ada peringatan akses `anon`/`authenticated`.
+4. **Siapkan Supabase Storage Privat & Environment Variable Vercel (Production):**
+   - Buat bucket `kasbuka-proofs` dengan status **private** (bukan public).
+   - Atur Environment Variable berikut di Vercel untuk scope **Production** (nilai secret acak berbeda dari Staging):
+     - `DATABASE_URL` & `DIRECT_URL` (dari proyek Supabase production)
+     - `AUTH_SECRET` (string acak baru min. 32 karakter, misal via `node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`)
+     - `DONATIONS_ENABLED="false"` (wajib `false` selama pilot)
+     - `STORAGE_PROVIDER="supabase"`
+     - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` (`kasbuka-proofs`)
+     - `NEXT_PUBLIC_APP_URL` (URL domain production)
+5. **Buat Akun Pengurus Pilot Pertama:**
+   Jalankan script CLI interaktif dengan input password tersembunyi (raw mode muted). Gunakan koneksi direct production lalu hapus kembali variabel sesi setelah selesai:
+   ```powershell
+   $env:DATABASE_URL = "<PROD_DATABASE_DIRECT_URL>"
+   $env:DIRECT_URL = "<PROD_DATABASE_DIRECT_URL>"
+   $env:ADMIN_EMAIL = "pengurus@pilot.org"
+   $env:ADMIN_ORG = "Organisasi Pilot"
+   npm run create-admin
+   Remove-Item Env:DATABASE_URL, Env:DIRECT_URL, Env:ADMIN_EMAIL, Env:ADMIN_ORG
    ```
-5. **Siapkan Supabase Storage Privat:**
-   - Buat bucket `kasbuka-proofs` dengan status privat (bukan public).
-   - Pastikan role server menggunakan `STORAGE_PROVIDER="supabase"` dengan `SUPABASE_SERVICE_ROLE_KEY`.
 
 ### 3. Aturan Saklar Donasi Online (`DONATIONS_ENABLED`)
 - **Staging:** `DONATIONS_ENABLED="true"` diaktifkan **hanya** saat pengujian end-to-end dengan Midtrans Sandbox Simulator.
-- **Production (Pilot):** `DONATIONS_ENABLED="false"` **wajib bernilai false** sebelum dan selama onboarding organisasi pilot nyata. Pengurus pilot mencatat transaksi kas operasional (IN manual dan OUT dengan bukti foto nota asli) tanpa membuka gerbang pembayaran daring hingga fase audit selesai.
+- **Production (Pilot):** `DONATIONS_ENABLED="false"` **wajib bernilai false** sebelum dan selama onboarding organisasi pilot nyata. Pengurus pilot mencatat transaksi kas operasional (`IN` manual dan `OUT` dengan bukti foto nota asli) tanpa membuka gerbang pembayaran daring hingga Gate G6 lolos.
+
+### 4. Uji Restore Backup Database Cadangan (`uji restore`)
+Skrip [scripts/test-backup-restore.ts](scripts/test-backup-restore.ts) (`npm run test:backup-restore`) melakukan backup `pg_dump` schema `public`, me-restore ke database uji bersih `kasbuka_restore_test`, memverifikasi trigger append-only aktif (`O`), memastikan RLS aktif di 8 tabel aplikasi, memvalidasi seluruh rantai hash SHA-256 via `LedgerService.verifyCampaignLedger`, lalu membersihkan kembali database uji.
+
+- **Uji restore terhadap database lokal (`kasbuka`):**
+  ```powershell
+  npm run test:backup-restore
+  ```
+- **Uji restore terhadap dump database production (syarat Gate G6):**
+  ```powershell
+  $env:RESTORE_DUMP_FILE = "path\ke\backup_production.sql"
+  npm run test:backup-restore
+  Remove-Item Env:RESTORE_DUMP_FILE
+  ```
+  *(Alternatif: atur `$env:SOURCE_DATABASE_URL = "<PROD_DATABASE_DIRECT_URL>"` selama sesi lalu hapus setelah selesai.)*
 
 ---
 
