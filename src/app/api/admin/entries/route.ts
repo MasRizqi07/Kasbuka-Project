@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
+import { calculateLedgerBalance } from '@/lib/ledger/balance';
 
-// GET: Mengambil entri buku kas milik campaign organisasi sesi
+// GET: Mengambil entri buku kas dan ringkasan saldo milik campaign organisasi sesi
 export const GET = withAdminAuth(async (req, session) => {
   const { searchParams } = new URL(req.url);
   const campaignId = searchParams.get('campaignId');
@@ -34,11 +35,33 @@ export const GET = withAdminAuth(async (req, session) => {
     orderBy: { seq: 'desc' },
   });
 
-  const serialized = entries.map(e => ({
+  const financial = calculateLedgerBalance(
+    entries.map((e) => ({
+      id: e.id,
+      seq: e.seq,
+      type: e.type,
+      amount: e.amount,
+      fee: e.fee,
+      reversesEntryId: e.reversesEntryId,
+    }))
+  );
+
+  const serialized = entries.map((e) => ({
     ...e,
     amount: e.amount.toString(),
     fee: e.fee.toString(),
+    occurredAt: e.occurredAt.toISOString(),
+    isReversed: financial.reversedEntryIds.has(e.id),
+    reversedBySeq: financial.reversedBySeq.get(e.id) ?? null,
   }));
 
-  return NextResponse.json({ data: serialized });
+  return NextResponse.json({
+    data: serialized,
+    financial: {
+      totalMasuk: financial.totalMasukBersih.toString(),
+      totalKeluar: financial.totalKeluar.toString(),
+      saldo: financial.saldo.toString(),
+      totalEntries: entries.length,
+    },
+  });
 });

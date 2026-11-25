@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateProofMagicBytes } from '@/lib/storage/proof';
-import { POST as createCampaign } from '@/app/api/admin/campaigns/route';
+import { GET as getCampaigns, POST as createCampaign } from '@/app/api/admin/campaigns/route';
 import { PATCH as publishCampaign } from '@/app/api/admin/campaigns/[id]/publish/route';
 import { PATCH as closeCampaign } from '@/app/api/admin/campaigns/[id]/close/route';
 import { POST as recordExpense } from '@/app/api/admin/entries/expense/route';
@@ -34,6 +34,9 @@ vi.mock('@/lib/prisma', () => {
         }),
       },
       campaign: {
+        findMany: vi.fn(async ({ where }: any) => {
+          return campaignsStore.filter((c) => !where.organizationId || c.organizationId === where.organizationId);
+        }),
         findFirst: vi.fn(async ({ where }: any) => {
           return campaignsStore.find((c) => {
             const matchId = !where.id || c.id === where.id;
@@ -208,6 +211,49 @@ describe('Fase 3 Evidence Gate: Akseptansi US-1, US-3, US-4, dan US-7', () => {
       const json = await res.json();
       expect(json.data.status).toBe('CLOSED');
       expect(json.message).toContain('Donasi baru ditolak');
+    });
+
+    it('GET, publish, dan close campaign dengan BigInt targetAmount tidak gagal serialisasi JSON', async () => {
+      (prisma as any)._seedStore(
+        [
+          {
+            id: 'camp-bigint',
+            organizationId: 'org-al-ikhlas',
+            slug: 'musala-bigint',
+            title: 'Renovasi Target BigInt',
+            story: 'Cerita uji serialisasi targetAmount BigInt.',
+            basis: 'TERBATAS',
+            permitNumber: null,
+            permitDate: null,
+            targetAmount: 85000000n,
+            status: 'DRAFT',
+            createdAt: new Date('2026-11-20T00:00:00Z'),
+            updatedAt: new Date('2026-11-20T00:00:00Z'),
+          },
+        ],
+        []
+      );
+
+      const listRes = await getCampaigns(new Request('http://localhost:3000/api/admin/campaigns'));
+      expect(listRes.status).toBe(200);
+      const listJson = await listRes.json();
+      expect(listJson.data[0].targetAmount).toBe('85000000');
+
+      const pubRes = await publishCampaign(new Request('http://localhost:3000'), {
+        params: Promise.resolve({ id: 'camp-bigint' }),
+      });
+      expect(pubRes.status).toBe(200);
+      const pubJson = await pubRes.json();
+      expect(pubJson.data.targetAmount).toBe('85000000');
+      expect(pubJson.data.status).toBe('ACTIVE');
+
+      const closeRes = await closeCampaign(new Request('http://localhost:3000'), {
+        params: Promise.resolve({ id: 'camp-bigint' }),
+      });
+      expect(closeRes.status).toBe(200);
+      const closeJson = await closeRes.json();
+      expect(closeJson.data.targetAmount).toBe('85000000');
+      expect(closeJson.data.status).toBe('CLOSED');
     });
   });
 

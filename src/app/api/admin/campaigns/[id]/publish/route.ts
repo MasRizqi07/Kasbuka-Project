@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
+import { serializeCampaign } from '@/lib/campaigns';
 
 export const PATCH = withAdminAuth(async (_req, session, context) => {
   const { id } = await (context as { params: Promise<{ id: string }> }).params;
@@ -20,7 +21,10 @@ export const PATCH = withAdminAuth(async (_req, session, context) => {
   }
 
   if (campaign.status === 'ACTIVE') {
-    return NextResponse.json({ message: 'Campaign sudah dalam status ACTIVE', data: campaign });
+    return NextResponse.json({
+      message: 'Campaign sudah dalam status ACTIVE',
+      data: serializeCampaign(campaign),
+    });
   }
 
   const updated = await prisma.campaign.update({
@@ -30,6 +34,6 @@ export const PATCH = withAdminAuth(async (_req, session, context) => {
 
   return NextResponse.json({
     message: 'Campaign berhasil dipublikasikan dan kini berstatus ACTIVE.',
-    data: updated,
+    data: serializeCampaign(updated),
   });
 });

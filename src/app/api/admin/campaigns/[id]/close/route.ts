@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth-guard';
 import { prisma } from '@/lib/prisma';
+import { serializeCampaign } from '@/lib/campaigns';
 
 export const PATCH = withAdminAuth(async (_req, session, context) => {
   const { id } = await (context as { params: Promise<{ id: string }> }).params;
@@ -26,6 +27,6 @@ export const PATCH = withAdminAuth(async (_req, session, context) => {
 
   return NextResponse.json({
     message: 'Campaign berhasil ditutup (CLOSED). Donasi baru ditolak, catatan tetap terbaca publik.',
-    data: updated,
+    data: serializeCampaign(updated),
   });
 });
